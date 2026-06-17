@@ -1,0 +1,8 @@
+{
+  "name": "PANTAU IKU Poltekkes Palembang",
+  "description": "Platform Pemantauan dan Early Warning System IKU Poltekkes Kemenkes Palembang",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
