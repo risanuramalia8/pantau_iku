@@ -7,6 +7,7 @@ import HomeDashboard from "./components/HomeDashboard";
 import IndicatorTabs from "./components/IndicatorTabs";
 import PjBackend from "./components/PjBackend";
 import AdminPanel from "./components/AdminPanel";
+import LoadingSkeleton from "./components/LoadingSkeleton";
 import { 
   Chrome, 
   LogIn, 
@@ -19,44 +20,117 @@ import {
   FolderLock, 
   HelpCircle,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  Cloud,
+  CloudOff,
+  RefreshCw
 } from "lucide-react";
+import { collection, doc, getDocs, setDoc, writeBatch } from "firebase/firestore";
+import { db } from "./firebase";
 
 export default function App() {
-  const [indicators, setIndicators] = useState<Indicator[]>([]);
+  // Instant-on: Initialize from LocalStorage cache immediately to eliminate initial fetch delay for returning users
+  const [indicators, setIndicators] = useState<Indicator[]>(() => {
+    const savedData = localStorage.getItem("PANTAU_IKU_DATA_2026");
+    if (savedData) {
+      try {
+        const parsed = JSON.parse(savedData) as Indicator[];
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      } catch (e) {
+        // fallback to empty state below
+      }
+    }
+    return [];
+  });
+
   const [selectedQuarter, setSelectedQuarter] = useState<QuarterName>("TW II"); // default evaluated quarter
   const [activeTab, setActiveTab] = useState<"dashboard" | "tabs" | "pj-backend" | "admin-panel">("dashboard");
   const [activeIndicatorKode, setActiveIndicatorKode] = useState<string>("IKM 17.3.1");
   const [userSession, setUserSession] = useState<UserSession | null>(null);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
 
-  // Initialize and load persistent indicators from LocalStorage
+  // Cloud Sync State
+  const [dbStatus, setDbStatus] = useState<"loading" | "connected" | "error">("loading");
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Initialize and load persistent indicators from Firebase Cloud Storage
   useEffect(() => {
-    const savedData = localStorage.getItem("PANTAU_IKU_DATA_2026");
-    if (savedData) {
+    async function initAndLoadData() {
+      setDbStatus("loading");
       try {
-        const parsed = JSON.parse(savedData) as Indicator[];
-        // Force refresh of metadata (like definisiOperasional, indikatorKinerja, target, dll)
-        // while preserving user inputs inside quarters
-        const merged = INITIAL_INDICATORS.map(initInd => {
-          const userInd = parsed.find(p => p.kode === initInd.kode);
-          if (userInd) {
-            return {
-              ...initInd,
-              quarters: userInd.quarters
-            };
+        // Retrieve indicators directly from Firestore collection to optimize initial load speed (fetched once at mount)
+        const querySnapshot = await getDocs(collection(db, "indicators"));
+        if (querySnapshot.empty) {
+          // Cloud Firestore database is completely brand new/empty. Let's seed it!
+          const batch = writeBatch(db);
+          INITIAL_INDICATORS.forEach(ind => {
+            const docRef = doc(db, "indicators", ind.kode);
+            batch.set(docRef, ind);
+          });
+          await batch.commit();
+
+          setIndicators(INITIAL_INDICATORS);
+          localStorage.setItem("PANTAU_IKU_DATA_2026", JSON.stringify(INITIAL_INDICATORS));
+          setDbStatus("connected");
+        } else {
+          // Parse documents
+          const fetched: Indicator[] = [];
+          querySnapshot.forEach(docSnap => {
+            fetched.push(docSnap.data() as Indicator);
+          });
+
+          // Defensively merge with INITIAL_INDICATORS to preserve structure while restoring quarters entries
+          const merged = INITIAL_INDICATORS.map(initInd => {
+            const dbInd = fetched.find(p => p.kode === initInd.kode);
+            if (dbInd) {
+              return {
+                ...initInd,
+                quarters: dbInd.quarters
+              };
+            }
+            return initInd;
+          });
+
+          setIndicators(merged);
+          localStorage.setItem("PANTAU_IKU_DATA_2026", JSON.stringify(merged));
+          setDbStatus("connected");
+        }
+      } catch (error) {
+        console.error("Error loading indicators from Firestore, falling back to LocalStorage:", error);
+        setDbStatus("error");
+
+        // Graceful LocalStorage fallback so the app stays perfectly robust offline
+        const savedData = localStorage.getItem("PANTAU_IKU_DATA_2026");
+        if (savedData) {
+          try {
+            const parsed = JSON.parse(savedData) as Indicator[];
+            const merged = INITIAL_INDICATORS.map(initInd => {
+              const userInd = parsed.find(p => p.kode === initInd.kode);
+              if (userInd) {
+                return {
+                  ...initInd,
+                  quarters: userInd.quarters
+                };
+              }
+              return initInd;
+            });
+            setIndicators(merged);
+          } catch {
+            if (indicators.length === 0) {
+              setIndicators(INITIAL_INDICATORS);
+            }
           }
-          return initInd;
-        });
-        setIndicators(merged);
-        localStorage.setItem("PANTAU_IKU_DATA_2026", JSON.stringify(merged));
-      } catch (e) {
-        setIndicators(INITIAL_INDICATORS);
+        } else {
+          if (indicators.length === 0) {
+            setIndicators(INITIAL_INDICATORS);
+          }
+        }
       }
-    } else {
-      setIndicators(INITIAL_INDICATORS);
-      localStorage.setItem("PANTAU_IKU_DATA_2026", JSON.stringify(INITIAL_INDICATORS));
     }
+
+    initAndLoadData();
 
     // Load active session from localstorage if available
     const savedSession = localStorage.getItem("PANTAU_IKU_SESSION_2026");
@@ -69,11 +143,24 @@ export default function App() {
     }
   }, []);
 
-  // Sync to localstorage whenever indicators change
-  const handleUpdateIndicator = (updatedInd: Indicator) => {
+  // Sync to Firestore & LocalStorage whenever indicators change
+  const handleUpdateIndicator = async (updatedInd: Indicator) => {
+    setIsSyncing(true);
     const updatedList = indicators.map(ind => ind.kode === updatedInd.kode ? updatedInd : ind);
     setIndicators(updatedList);
+    
+    // Update local copy
     localStorage.setItem("PANTAU_IKU_DATA_2026", JSON.stringify(updatedList));
+
+    // Update Cloud Firestore document
+    try {
+      const docRef = doc(db, "indicators", updatedInd.kode);
+      await setDoc(docRef, updatedInd);
+    } catch (error) {
+      console.error("Failed to sync updated indicator to Firestore:", error);
+    } finally {
+      setIsSyncing(false);
+    }
   };
 
   const handleLoginSuccess = (session: UserSession) => {
@@ -111,7 +198,32 @@ export default function App() {
             <div className="block max-w-xl">
               <h1 className="text-lg sm:text-xl font-black text-white tracking-wider leading-none uppercase">PANTAU IKU</h1>
               <p className="text-xs text-white font-bold leading-snug mt-1">Platform Pemantauan & Early Warning System Indikator Kinerja Utama</p>
-              <p className="text-[10px] text-teal-100 font-extrabold tracking-wide uppercase mt-0.5">Poltekkes Kemenkes Palembang</p>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
+                <p className="text-[10px] text-teal-100 font-extrabold tracking-wide uppercase">Poltekkes Kemenkes Palembang</p>
+                <div id="cloud-database-status" className="flex items-center gap-1 text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.2 rounded bg-teal-900/65 border border-teal-600/40 select-none">
+                  {dbStatus === "loading" && (
+                    <>
+                      <RefreshCw className="w-2.5 h-2.5 text-yellow-400 animate-spin" />
+                      <span className="text-teal-200">Menghubungkan Database...</span>
+                    </>
+                  )}
+                  {dbStatus === "connected" && (
+                    <>
+                      <Cloud className="w-2.5 h-2.5 text-emerald-400 animate-pulse" />
+                      <span className="text-emerald-300">Database Cloud Aktif</span>
+                    </>
+                  )}
+                  {dbStatus === "error" && (
+                    <>
+                      <CloudOff className="w-2.5 h-2.5 text-rose-400" />
+                      <span className="text-rose-300">Mode Offline (Lokal)</span>
+                    </>
+                  )}
+                  {isSyncing && (
+                    <span className="text-yellow-400 animate-pulse ml-0.5">(Menyimpan...)</span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 
@@ -224,10 +336,7 @@ export default function App() {
 
         {/* Main interactive Tab Contents render */}
         {indicators.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-gray-150 p-12 text-center flex flex-col items-center justify-center space-y-4">
-            <div className="w-16 h-16 border-4 border-teal-100 border-t-teal-700 rounded-full animate-spin"></div>
-            <p className="text-xs text-gray-500">Mempersiapkan rincian indikator dari pangkalan data...</p>
-          </div>
+          <LoadingSkeleton />
         ) : (
           <>
             {activeTab === "dashboard" && (

@@ -1,0 +1,66 @@
+{
+  "entities": {
+    "Indicator": {
+      "title": "Indicator",
+      "description": "Represents a single Indikator Kinerja Utama (IKU) / KPI for Poltekkes Kemenkes Palembang 2026",
+      "type": "object",
+      "properties": {
+        "no": {
+          "type": "integer",
+          "description": "The sequential number of the indicator"
+        },
+        "kode": {
+          "type": "string",
+          "description": "The unique code of the indicator (e.g. IKM 17.3.1)"
+        },
+        "indikatorKinerja": {
+          "type": "string",
+          "description": "Detailed performance indicator text"
+        },
+        "definisiOperasional": {
+          "type": "string",
+          "description": "Operational definition of the indicator"
+        },
+        "formulaPerhitungan": {
+          "type": "string",
+          "description": "The formula used to calculate this indicator"
+        },
+        "dataDibutuhkan": {
+          "type": "array",
+          "description": "List of variables or input values needed for calculations"
+        },
+        "target2026": {
+          "type": "number",
+          "description": "Numerical target for the year 2026"
+        },
+        "target2026Label": {
+          "type": "string",
+          "description": "Friendly label of the target (e.g. 66%)"
+        },
+        "satuan": {
+          "type": "string",
+          "description": "The unit of measurement (e.g. %, orang, dokumen)"
+        },
+        "pj": {
+          "type": "string",
+          "description": "The Penanggung Jawab unit (e.g. Alumni dan Kerjasama, Keuangan)"
+        },
+        "pjWadir": {
+          "type": "string",
+          "description": "The supervising Vice Director (Wadir 1, Wadir 2, Wadir 3)"
+        },
+        "quarters": {
+          "type": "object",
+          "description": "Data entries for each quarter (TW I, TW II, TW III, TW IV)"
+        }
+      },
+      "required": ["no", "kode", "indikatorKinerja", "quarters"]
+    }
+  },
+  "firestore": {
+    "/indicators/{indicatorId}": {
+      "schema": "Indicator",
+      "description": "Collection of all Poltekkes Performance Indicators"
+    }
+  }
+}
