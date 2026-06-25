@@ -296,8 +296,16 @@ export default function IndicatorTabs({
                           </div>
 
                           {qData.justifikasi && (
-                            <div className="text-[10px] text-slate-500 mt-1 select-text bg-slate-50 p-1.5 rounded border border-slate-100 italic font-medium">
+                            <div className="text-[10px] text-slate-600 mt-1.5 select-text bg-red-55 bg-red-50/40 p-2.5 rounded border border-red-100 italic font-medium">
+                              <strong className="text-red-900 block font-bold mb-1">Permasalahan:</strong>
                               "{qData.justifikasi}"
+                            </div>
+                          )}
+
+                          {qData.rencanaTindakLanjut && (
+                            <div className="text-[10px] text-slate-600 mt-1.5 select-text bg-emerald-50/40 p-2.5 rounded border border-emerald-100 italic font-medium">
+                              <strong className="text-emerald-900 block font-bold mb-1">Rencana Tindak Lanjut:</strong>
+                              "{qData.rencanaTindakLanjut}"
                             </div>
                           )}
 

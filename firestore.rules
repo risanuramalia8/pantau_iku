@@ -4,5 +4,8 @@ service cloud.firestore {
     match /indicators/{indicatorId} {
       allow read, write: if true;
     }
+    match /spi_notes/{noteId} {
+      allow read, write: if true;
+    }
   }
 }

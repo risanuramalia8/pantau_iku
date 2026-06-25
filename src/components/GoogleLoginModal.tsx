@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { UserSession } from "../types";
-import { KeyRound, ShieldAlert, X, User, LogIn, Eye, EyeOff, Info, ChevronDown, ChevronUp } from "lucide-react";
+import { KeyRound, ShieldAlert, X, User, LogIn, Eye, EyeOff } from "lucide-react";
 
 interface GoogleLoginModalProps {
   isOpen: boolean;
@@ -95,6 +95,37 @@ const SYSTEM_ACCOUNTS = [
     role: "pj" as const,
     pjName: "UPR",
     email: "upr@poltekkes-palembang.ac.id"
+  },
+  {
+    username: "verifikator_spi",
+    password: "spi123",
+    name: "Verifikator SPI",
+    role: "spi_verifier" as const,
+    email: "verifikator.spi@poltekkes-palembang.ac.id"
+  },
+  {
+    username: "wadir1",
+    password: "wadir123",
+    name: "Wadir I (Wakil Direktur I)",
+    role: "pj" as const,
+    pjName: "Wadir 1",
+    email: "wadir1@poltekkes-palembang.ac.id"
+  },
+  {
+    username: "wadir2",
+    password: "wadir123",
+    name: "Wadir II (Wakil Direktur II)",
+    role: "pj" as const,
+    pjName: "Wadir 2",
+    email: "wadir2@poltekkes-palembang.ac.id"
+  },
+  {
+    username: "wadir3",
+    password: "wadir123",
+    name: "Wadir III (Wakil Direktur III)",
+    role: "pj" as const,
+    pjName: "Wadir 3",
+    email: "wadir3@poltekkes-palembang.ac.id"
   }
 ];
 
@@ -104,7 +135,6 @@ export default function GoogleLoginModal({ isOpen, onClose, onLoginSuccess }: Go
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [isAuthenticating, setIsAuthenticating] = useState(false);
-  const [showHelp, setShowHelp] = useState(false);
 
   if (!isOpen) return null;
 
@@ -143,12 +173,6 @@ export default function GoogleLoginModal({ isOpen, onClose, onLoginSuccess }: Go
       });
       onClose();
     }, 850);
-  };
-
-  const handleQuickFill = (acc: typeof SYSTEM_ACCOUNTS[0]) => {
-    setUsername(acc.username);
-    setPassword(acc.password);
-    setErrorMsg("");
   };
 
   return (
@@ -243,58 +267,13 @@ export default function GoogleLoginModal({ isOpen, onClose, onLoginSuccess }: Go
                   <button
                     id="btn-submit-system-login"
                     type="submit"
-                    className="w-full py-2.5 bg-yellow-500 hover:bg-yellow-600 active:scale-[0.99] text-teal-950 font-black rounded transition duration-200 flex items-center justify-center gap-2 shadow border-b-2 border-yellow-600"
+                    className="w-full py-2.5 bg-yellow-500 hover:bg-yellow-600 active:scale-[0.99] text-teal-950 font-black rounded transition duration-200 flex items-center justify-center gap-2 shadow border-b-2 border-yellow-600 uppercase tracking-wider"
                   >
                     <LogIn className="w-4 h-4" />
-                    MASUK SEBAGAI PJ / ADMIN
+                    MASUK
                   </button>
                 </div>
               </form>
-
-              {/* Expandable credential guides helpers for testing */}
-              <div className="border border-slate-100 rounded-lg overflow-hidden bg-slate-50 transition">
-                <button
-                  type="button"
-                  onClick={() => setShowHelp(!showHelp)}
-                  className="w-full px-4 py-2.5 text-left text-[11px] font-bold text-slate-600 hover:text-teal-850 hover:bg-slate-100 flex items-center justify-between transition"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <Info className="w-4 h-4 text-teal-600" />
-                    <span>Petunjuk Akun Sistem (Klik untuk Isi Otomatis)</span>
-                  </div>
-                  {showHelp ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                </button>
-
-                {showHelp && (
-                  <div className="px-4 pb-3 pt-1 border-t border-slate-100 max-h-52 overflow-y-auto space-y-1.5 divide-y divide-slate-100">
-                    {SYSTEM_ACCOUNTS.map((acc) => (
-                      <div 
-                        key={acc.username} 
-                        onClick={() => handleQuickFill(acc)}
-                        className="pt-1.5 first:pt-0 flex items-center justify-between text-[11px] hover:bg-teal-50/50 p-1 rounded cursor-pointer transition group"
-                      >
-                        <div>
-                          <p className="font-bold text-slate-800">
-                            {acc.name} 
-                            <span className="text-[9px] ml-1 bg-teal-100 text-teal-850 px-1 py-0.2 rounded font-sans uppercase">
-                              {acc.role}
-                            </span>
-                          </p>
-                          <p className="text-[10px] text-slate-500 font-semibold font-mono">
-                            Username: <span className="text-teal-700 bg-teal-50 px-1 rounded font-bold">{acc.username}</span>
-                          </p>
-                        </div>
-                        <div className="text-right flex items-center gap-1">
-                          <span className="text-[9px] text-slate-400 font-bold group-hover:text-teal-700">isi otomatis →</span>
-                          <span className="text-[9px] bg-amber-100 border border-amber-200 px-1 rounded font-bold font-mono text-amber-900">
-                            pw: {acc.password}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
             </>
           )}
         </div>

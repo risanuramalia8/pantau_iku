@@ -22,8 +22,19 @@ interface PjBackendProps {
 }
 
 export default function PjBackend({ indicators, session, onUpdateIndicator }: PjBackendProps) {
+  // Helper to format Wadir names beautifully
+  const formatPjName = (name: string | undefined) => {
+    if (!name) return "Umum";
+    if (name === "Wadir 1") return "Wadir I";
+    if (name === "Wadir 2") return "Wadir II";
+    if (name === "Wadir 3") return "Wadir III";
+    return name;
+  };
+
   // Filter indicators that belong to this PJ
-  const myIndicators = indicators.filter(ind => ind.pj === session.pjName);
+  const myIndicators = indicators.filter(ind => 
+    ind.pj === session.pjName || ind.pjWadir === session.pjName
+  );
   
   if (myIndicators.length === 0) {
     return (
@@ -31,7 +42,7 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
         <AlertCircle className="w-12 h-12 text-amber-500 mx-auto animate-bounce" />
         <h3 className="text-lg font-bold text-slate-800 font-sans">Tidak Ada Indikator</h3>
         <p className="text-xs text-slate-500 leading-relaxed font-semibold">
-          Akun Anda terdaftar sebagai PJ <strong className="text-teal-900">{session.pjName || "Umum"}</strong>. 
+          Akun Anda terdaftar sebagai PJ/Verifikator <strong className="text-teal-900">{formatPjName(session.pjName)}</strong>. 
           Namun saat ini belum ada indikator kinerja utama (IKU) yang ditugaskan ke departemen Anda dalam database instansi 2026.
         </p>
       </div>
@@ -47,6 +58,7 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
   // Form states
   const [variableInputs, setVariableInputs] = useState<{ [varName: string]: number }>({});
   const [justifikasi, setJustifikasi] = useState("");
+  const [rencanaTindakLanjut, setRencanaTindakLanjut] = useState("");
   const [linkDokumen, setLinkDokumen] = useState("");
   
   // File upload drag-drop state simulation
@@ -69,6 +81,7 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
 
     setVariableInputs(initialInputs);
     setJustifikasi(qData.justifikasi || "");
+    setRencanaTindakLanjut(qData.rencanaTindakLanjut || "");
     setLinkDokumen(qData.linkDokumen || "");
     setUploadedFiles(qData.linkDokumen ? [{ name: "Dokumen_Dukung_TW.pdf", size: "1.4 MB", status: "Uploaded" }] : []);
     setIsLocalEditing(!qData.isFilled);
@@ -149,6 +162,7 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
     const updatedIndicator: Indicator = JSON.parse(JSON.stringify(activeInd));
     
     updatedIndicator.quarters[selectedTw] = {
+      ...qData,
       isFilled: true,
       variables: variableInputs,
       realisasi,
@@ -156,6 +170,7 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
       capaian,
       status: liveStatus,
       justifikasi,
+      rencanaTindakLanjut,
       linkDokumen,
       updatedAt: new Date().toISOString(),
       updatedBy: session.email,
@@ -183,7 +198,7 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
           <div className="pb-3 border-b border-slate-100">
             <h3 className="font-bold text-slate-800 text-sm">IKU yang Harus Dilaporkan</h3>
             <p className="text-[11px] text-slate-500 mt-1">
-              Sebagai PJ <strong className="text-teal-900">{session.pjName}</strong>, Anda bertanggung jawab mengisi data untuk {myIndicators.length} indikator ini.
+              Sebagai PJ/Verifikator <strong className="text-teal-900">{formatPjName(session.pjName)}</strong>, Anda bertanggung jawab mengisi data untuk {myIndicators.length} indikator ini.
             </p>
           </div>
 
@@ -366,25 +381,45 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
 
             </div>
 
-            {/* Justifikasi & Link Dukung */}
+            {/* Permasalahan & Tindak Lanjut & Link Dukung */}
             <div className="space-y-4">
               <h4 className="text-xs font-bold text-slate-800 tracking-wider uppercase block">
-                Pernyataan Dukung & Justifikasi
+                Permasalahan & Rencana Tindak Lanjut
               </h4>
 
               <div className="space-y-4">
                 <div>
                   <label className="text-[11px] font-bold text-slate-700 block mb-1">
-                    Justifikasi / Keterangan Pencapaian ({selectedTw})
+                    Permasalahan ({selectedTw})
                   </label>
                   <textarea
                     id="input-justifikasi"
                     required
                     disabled={isFieldDisabled}
                     rows={3}
-                    placeholder="Contoh: Proses Tracer Study sedang dipicu beriringan dengan pengumpulan laporan LTA..."
+                    placeholder="Contoh: Kendala keterbatasan data responden atau hambatan pengumpulan dokumen..."
                     value={justifikasi}
                     onChange={(e) => setJustifikasi(e.target.value)}
+                    className={`w-full text-xs px-3.5 py-2.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-teal-700 ${
+                      isFieldDisabled 
+                        ? "bg-slate-100 text-slate-500 cursor-not-allowed" 
+                        : "bg-white font-medium"
+                    }`}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-700 block mb-1">
+                    Rencana Tindak Lanjut ({selectedTw})
+                  </label>
+                  <textarea
+                    id="input-rencana-tindak-lanjut"
+                    required
+                    disabled={isFieldDisabled}
+                    rows={3}
+                    placeholder="Masukkan rencana aksi taktis untuk mengatasi permasalahan pada indikator ini..."
+                    value={rencanaTindakLanjut}
+                    onChange={(e) => setRencanaTindakLanjut(e.target.value)}
                     className={`w-full text-xs px-3.5 py-2.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-teal-700 ${
                       isFieldDisabled 
                         ? "bg-slate-100 text-slate-500 cursor-not-allowed" 
@@ -551,6 +586,7 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
                           });
                           setVariableInputs(initialInputs);
                           setJustifikasi(qData.justifikasi || "");
+                          setRencanaTindakLanjut(qData.rencanaTindakLanjut || "");
                           setLinkDokumen(qData.linkDokumen || "");
                           setIsLocalEditing(false);
                         }}

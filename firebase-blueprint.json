@@ -55,12 +55,44 @@
         }
       },
       "required": ["no", "kode", "indikatorKinerja", "quarters"]
+    },
+    "SpiNote": {
+      "title": "SpiNote",
+      "description": "Catatan Verifikasi dari Satuan Pengawas Internal (SPI) Poltekkes Palembang",
+      "type": "object",
+      "properties": {
+        "year": {
+          "type": "integer",
+          "description": "The evaluation year (e.g. 2026)"
+        },
+        "quarter": {
+          "type": "string",
+          "description": "The evaluation quarter (e.g. TW I)"
+        },
+        "note": {
+          "type": "string",
+          "description": "Detailed verification note text"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "The timestamp of when the note was updated"
+        },
+        "updatedBy": {
+          "type": "string",
+          "description": "The email of the verifier who updated the note"
+        }
+      },
+      "required": ["year", "quarter", "note"]
     }
   },
   "firestore": {
     "/indicators/{indicatorId}": {
       "schema": "Indicator",
       "description": "Collection of all Poltekkes Performance Indicators"
+    },
+    "/spi_notes/{noteId}": {
+      "schema": "SpiNote",
+      "description": "Collection of all SPI Verification Notes"
     }
   }
 }

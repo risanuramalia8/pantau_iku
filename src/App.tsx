@@ -68,6 +68,16 @@ export default function App() {
   const [dbStatus, setDbStatus] = useState<"loading" | "connected" | "error">("loading");
   const [isSyncing, setIsSyncing] = useState(false);
 
+  const [spiNotes, setSpiNotes] = useState<{ [key: string]: string }>(() => {
+    const saved = localStorage.getItem("PANTAU_IKU_SPI_NOTES_2026");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {}
+    }
+    return {};
+  });
+
   // Initialize and load persistent indicators from Firebase Cloud Storage
   useEffect(() => {
     async function initAndLoadData() {
@@ -92,6 +102,23 @@ export default function App() {
 
           setIndicators(seeded);
           localStorage.setItem("PANTAU_IKU_DATA_2026", JSON.stringify(seeded));
+          
+          // Retrieve SPI Notes
+          try {
+            const spiSnapshot = await getDocs(collection(db, "spi_notes"));
+            const fetchedSpiNotes: { [key: string]: string } = {};
+            spiSnapshot.forEach(docSnap => {
+              const data = docSnap.data();
+              if (data && data.note !== undefined) {
+                fetchedSpiNotes[`${data.year}_${data.quarter}`] = data.note;
+              }
+            });
+            setSpiNotes(fetchedSpiNotes);
+            localStorage.setItem("PANTAU_IKU_SPI_NOTES_2026", JSON.stringify(fetchedSpiNotes));
+          } catch (e) {
+            console.error("Failed to load SPI notes from Firestore:", e);
+          }
+
           setDbStatus("connected");
         } else {
           // Parse documents
@@ -113,6 +140,23 @@ export default function App() {
 
           setIndicators(finalFetched);
           localStorage.setItem("PANTAU_IKU_DATA_2026", JSON.stringify(finalFetched));
+          
+          // Retrieve SPI Notes
+          try {
+            const spiSnapshot = await getDocs(collection(db, "spi_notes"));
+            const fetchedSpiNotes: { [key: string]: string } = {};
+            spiSnapshot.forEach(docSnap => {
+              const data = docSnap.data();
+              if (data && data.note !== undefined) {
+                fetchedSpiNotes[`${data.year}_${data.quarter}`] = data.note;
+              }
+            });
+            setSpiNotes(fetchedSpiNotes);
+            localStorage.setItem("PANTAU_IKU_SPI_NOTES_2026", JSON.stringify(fetchedSpiNotes));
+          } catch (e) {
+            console.error("Failed to load SPI notes from Firestore:", e);
+          }
+
           setDbStatus("connected");
         }
       } catch (error) {
@@ -146,6 +190,13 @@ export default function App() {
             setIndicators(defaultList);
           }
         }
+
+        const savedSpiNotes = localStorage.getItem("PANTAU_IKU_SPI_NOTES_2026");
+        if (savedSpiNotes) {
+          try {
+            setSpiNotes(JSON.parse(savedSpiNotes));
+          } catch (e) {}
+        }
       }
     }
 
@@ -177,6 +228,29 @@ export default function App() {
       await setDoc(docRef, newInd);
     } catch (error) {
       console.error("Failed to add indicator to Firestore:", error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleUpdateSpiNote = async (year: number, quarter: string, noteText: string, email: string) => {
+    setIsSyncing(true);
+    const key = `${year}_${quarter}`;
+    const newNotes = { ...spiNotes, [key]: noteText };
+    setSpiNotes(newNotes);
+    localStorage.setItem("PANTAU_IKU_SPI_NOTES_2026", JSON.stringify(newNotes));
+
+    try {
+      const docRef = doc(db, "spi_notes", key);
+      await setDoc(docRef, {
+        year,
+        quarter,
+        note: noteText,
+        updatedAt: new Date().toISOString(),
+        updatedBy: email
+      });
+    } catch (error) {
+      console.error("Failed to sync SPI note to Firestore:", error);
     } finally {
       setIsSyncing(false);
     }
@@ -325,29 +399,6 @@ export default function App() {
               <p className="text-xs text-white font-bold leading-snug mt-1">Platform Pemantauan & Early Warning System Indikator Kinerja Utama</p>
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
                 <p className="text-[10px] text-teal-100 font-extrabold tracking-wide uppercase">Poltekkes Kemenkes Palembang</p>
-                <div id="cloud-database-status" className="flex items-center gap-1 text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.2 rounded bg-teal-900/65 border border-teal-600/40 select-none">
-                  {dbStatus === "loading" && (
-                    <>
-                      <RefreshCw className="w-2.5 h-2.5 text-yellow-400 animate-spin" />
-                      <span className="text-teal-200">Menghubungkan Database...</span>
-                    </>
-                  )}
-                  {dbStatus === "connected" && (
-                    <>
-                      <Cloud className="w-2.5 h-2.5 text-emerald-400 animate-pulse" />
-                      <span className="text-emerald-300">Database Cloud Aktif</span>
-                    </>
-                  )}
-                  {dbStatus === "error" && (
-                    <>
-                      <CloudOff className="w-2.5 h-2.5 text-rose-400" />
-                      <span className="text-rose-300">Mode Offline (Lokal)</span>
-                    </>
-                  )}
-                  {isSyncing && (
-                    <span className="text-yellow-400 animate-pulse ml-0.5">(Menyimpan...)</span>
-                  )}
-                </div>
               </div>
             </div>
           </div>
@@ -432,13 +483,29 @@ export default function App() {
             {/* Auth Session Button */}
             {userSession ? (
               <div className="flex items-center gap-2 bg-teal-900/60 border border-teal-700/50 p-1 rounded-lg">
-                <div id="user-session-badge" className="w-7 h-7 rounded-full bg-yellow-500 text-teal-950 font-black text-xs flex items-center justify-center flex-shrink-0 border border-yellow-400">
-                  {userSession.pjName ? userSession.pjName.substring(0, 2).toUpperCase() : "AD"}
+                <div id="user-session-badge" className="w-7 h-7 rounded-full bg-yellow-500 text-teal-950 font-black text-xs flex items-center justify-center flex-shrink-0 border border-yellow-400 font-mono">
+                  {userSession.role === "spi_verifier" 
+                    ? "SP" 
+                    : userSession.pjName?.startsWith("Wadir") 
+                      ? userSession.pjName.replace("Wadir ", "W") 
+                      : userSession.pjName 
+                        ? userSession.pjName.substring(0, 2).toUpperCase() 
+                        : "AD"}
                 </div>
                 <div className="hidden sm:block text-left text-[11px] leading-tight max-w-[120px]">
                   <p className="font-bold text-white truncate">{userSession.name}</p>
                   <p className="text-[9px] text-yellow-400 truncate uppercase tracking-widest font-bold font-mono">
-                    {userSession.pjName ? `PJ ${userSession.pjName}` : "Admin"}
+                    {userSession.role === "spi_verifier" 
+                      ? "Verifikator SPI" 
+                      : userSession.pjName === "Wadir 1" 
+                        ? "Wadir I" 
+                        : userSession.pjName === "Wadir 2" 
+                          ? "Wadir II" 
+                          : userSession.pjName === "Wadir 3" 
+                            ? "Wadir III" 
+                            : userSession.pjName 
+                              ? `PJ ${userSession.pjName}` 
+                              : "Admin"}
                   </p>
                 </div>
                 <button
@@ -484,6 +551,10 @@ export default function App() {
                 indicators={yearFilteredIndicators} 
                 selectedQuarter={selectedQuarter} 
                 onSelectIndicator={handleSelectIndicatorFromDashboard} 
+                userSession={userSession}
+                selectedYear={selectedYear}
+                spiNotes={spiNotes}
+                onUpdateSpiNote={handleUpdateSpiNote}
               />
             )}
 
@@ -535,6 +606,33 @@ export default function App() {
         onClose={() => setIsLoginModalOpen(false)} 
         onLoginSuccess={handleLoginSuccess} 
       />
+
+      {/* 4. FLOATING CLOUD DATABASE STATUS (Pojok Kanan Paling Bawah) */}
+      <div className="fixed bottom-4 right-4 z-40">
+        <div id="cloud-database-status" className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider font-extrabold px-3 py-1.5 rounded-full bg-slate-900/95 text-white shadow-lg border border-slate-700/50 backdrop-blur-sm select-none">
+          {dbStatus === "loading" && (
+            <>
+              <RefreshCw className="w-3 h-3 text-yellow-400 animate-spin" />
+              <span className="text-slate-300">Menghubungkan Database...</span>
+            </>
+          )}
+          {dbStatus === "connected" && (
+            <>
+              <Cloud className="w-3 h-3 text-emerald-400 animate-pulse" />
+              <span className="text-emerald-400 font-sans">Database Cloud Aktif</span>
+            </>
+          )}
+          {dbStatus === "error" && (
+            <>
+              <CloudOff className="w-3 h-3 text-rose-400" />
+              <span className="text-rose-300">Mode Offline (Lokal)</span>
+            </>
+          )}
+          {isSyncing && (
+            <span className="text-yellow-400 animate-pulse ml-0.5">(Menyimpan...)</span>
+          )}
+        </div>
+      </div>
 
     </div>
   );

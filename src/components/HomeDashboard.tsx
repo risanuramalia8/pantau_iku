@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Indicator, QuarterName } from "../types";
+import { Indicator, QuarterName, UserSession } from "../types";
 import { getStatusTW, getTargetLabel } from "../utils";
 import { 
   TrendingUp, 
@@ -11,20 +11,47 @@ import {
   ArrowUpDown, 
   UserSquare2, 
   Building2, 
-  ChevronsRight 
+  ChevronsRight,
+  ShieldCheck,
+  FileText,
+  Save
 } from "lucide-react";
 
 interface HomeDashboardProps {
   indicators: Indicator[];
   selectedQuarter: QuarterName;
   onSelectIndicator: (kode: string) => void;
+  userSession: UserSession | null;
+  selectedYear: number;
+  spiNotes: { [key: string]: string };
+  onUpdateSpiNote: (year: number, quarter: string, noteText: string, email: string) => void;
 }
 
-export default function HomeDashboard({ indicators, selectedQuarter, onSelectIndicator }: HomeDashboardProps) {
+export default function HomeDashboard({ 
+  indicators, 
+  selectedQuarter, 
+  onSelectIndicator,
+  userSession,
+  selectedYear,
+  spiNotes,
+  onUpdateSpiNote
+}: HomeDashboardProps) {
   const [pjFilter, setPjFilter] = useState("Semua");
   const [wadirFilter, setWadirFilter] = useState("Semua");
   const [statusFilter, setStatusFilter] = useState("Semua");
   const [sortBy, setSortBy] = useState<"no" | "highest" | "lowest">("no");
+
+  const spiKey = `${selectedYear}_${selectedQuarter}`;
+  const currentSpiNote = (spiNotes && spiNotes[spiKey]) || "";
+  const [localSpiNote, setLocalSpiNote] = useState(currentSpiNote);
+
+  React.useEffect(() => {
+    setLocalSpiNote(currentSpiNote);
+  }, [currentSpiNote, spiKey]);
+
+  const handleSaveSpiNote = () => {
+    onUpdateSpiNote(selectedYear, selectedQuarter, localSpiNote, userSession?.email || "verifikator.spi@poltekkes-palembang.ac.id");
+  };
 
   // Dynamically analyze status for the active evaluation quarter
   const evaluatedData = indicators.map(ind => {
@@ -441,10 +468,16 @@ export default function HomeDashboard({ indicators, selectedQuarter, onSelectInd
                   </div>
 
                   <div className="mt-4 pt-3 border-t border-slate-100 space-y-2">
-                    <div className="text-[10px] text-slate-600 bg-slate-50 p-2 rounded border border-slate-150 line-clamp-2 font-medium">
-                      <strong className="text-red-900 block font-bold mb-0.5">Justifikasi PJ:</strong> 
-                      {ind.justifikasi || "Belum dimasukkan justifikasi hambatan."}
+                    <div className="text-[10px] text-slate-600 bg-red-50/30 p-2 rounded border border-red-100 line-clamp-2 font-medium">
+                      <strong className="text-red-900 block font-bold mb-0.5">Permasalahan:</strong> 
+                      {ind.justifikasi || "Belum dimasukkan permasalahan/hambatan."}
                     </div>
+                    {ind.quarters[selectedQuarter].rencanaTindakLanjut && (
+                      <div className="text-[10px] text-slate-600 bg-emerald-50/20 p-2 rounded border border-emerald-100 line-clamp-2 font-medium">
+                        <strong className="text-emerald-900 block font-bold mb-0.5">Rencana Tindak Lanjut:</strong> 
+                        {ind.quarters[selectedQuarter].rencanaTindakLanjut}
+                      </div>
+                    )}
                     <div className="flex items-center justify-between text-[10px] font-bold text-slate-500">
                       <span>PJ: <strong className="text-teal-900">{ind.pj}</strong></span>
                       <span className="flex items-center text-teal-700 font-extrabold gap-0.5 hover:underline">
@@ -459,6 +492,85 @@ export default function HomeDashboard({ indicators, selectedQuarter, onSelectInd
                 <div className="bg-red-100/50 border border-dashed border-red-200 rounded-xl p-4 flex flex-col items-center justify-center text-center">
                   <span className="text-red-800 font-bold font-mono text-xl">+{attentionIndicators.length - 9} Indikator Lagi</span>
                   <p className="text-[11px] text-red-700 mt-1">Gunakan filter tabel atau pilih tab detail rincian untuk melihat keseluruhan data penelusuran.</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 5. Satuan Pengawas Internal (SPI) Verification Notes */}
+      <div id="spi-verification-card" className="bg-slate-50 border border-teal-200/60 rounded-xl p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-teal-100">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-teal-100 text-teal-800 rounded shadow-inner">
+              <ShieldCheck className="w-5 h-5 text-teal-700" />
+            </div>
+            <div>
+              <h3 className="font-extrabold text-teal-950 text-base">Catatan Verifikasi dari Satuan Pengawas Internal (SPI)</h3>
+              <p className="text-xs text-slate-500 font-semibold">Tinjauan dan validasi berkas capaian IKU - {selectedQuarter} {selectedYear}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] bg-teal-800 text-white font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">
+              SPI Verified
+            </span>
+          </div>
+        </div>
+
+        <div className="mt-5">
+          {userSession?.role === "spi_verifier" ? (
+            // Edit Mode for SPI Verifier
+            <div className="space-y-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-xs text-yellow-800 font-semibold flex items-center gap-2">
+                <span className="text-lg">⚙️</span>
+                <span>Anda masuk sebagai <strong>Verifikator SPI</strong>. Silakan isi atau perbarui catatan verifikasi triwulanan Poltekkes Palembang di bawah ini.</span>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] font-bold text-slate-600 block uppercase tracking-wider">
+                  Isian Catatan Verifikasi ({selectedQuarter} {selectedYear})
+                </label>
+                <textarea
+                  id="input-spi-note"
+                  rows={4}
+                  className="w-full text-xs font-medium p-3 border border-slate-300 rounded focus:ring-1 focus:ring-teal-700 focus:outline-none bg-white text-slate-800 shadow-sm"
+                  placeholder="Contoh: Berdasarkan hasil verifikasi dokumen bukti pendukung, sebagian besar indikator triwulan II telah memenuhi kriteria pencapaian dengan bukti yang sahih..."
+                  value={localSpiNote}
+                  onChange={(e) => setLocalSpiNote(e.target.value)}
+                />
+              </div>
+              <div className="flex justify-end">
+                <button
+                  id="btn-save-spi-note"
+                  onClick={handleSaveSpiNote}
+                  className="px-4 py-2 bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold rounded flex items-center gap-1.5 shadow border border-teal-950 transition active:scale-[0.99]"
+                >
+                  <Save className="w-4 h-4 text-yellow-400" />
+                  <span>Simpan Catatan Verifikasi SPI</span>
+                </button>
+              </div>
+            </div>
+          ) : (
+            // View Mode for other roles / guests
+            <div className="space-y-4">
+              {currentSpiNote ? (
+                <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm relative overflow-hidden">
+                  <div className="absolute right-3 bottom-2 opacity-[0.03] select-none pointer-events-none">
+                    <ShieldCheck className="w-32 h-32 text-teal-900" />
+                  </div>
+                  <div className="prose prose-sm text-xs font-medium text-slate-700 leading-relaxed whitespace-pre-line select-text">
+                    {currentSpiNote}
+                  </div>
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-bold font-mono">
+                    <span>STATUS: VALID & DIVERIFIKASI</span>
+                    <span>Sistem Penjaminan Mutu & SPI Poltekkes Palembang</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center p-8 text-slate-600 font-semibold text-center bg-slate-100/50 rounded border border-slate-200">
+                  <FileText className="w-8 h-8 text-slate-400 stroke-1 mb-2" />
+                  <p className="text-xs">Belum ada Catatan Verifikasi dari Satuan Pengawas Internal (SPI) untuk periode {selectedQuarter} {selectedYear}.</p>
+                  <p className="text-[10px] text-slate-400 mt-1 font-medium">Verifikator SPI dapat masuk ke sistem untuk memberikan catatan rekomendasi atau status kesesuaian berkas pendukung.</p>
                 </div>
               )}
             </div>

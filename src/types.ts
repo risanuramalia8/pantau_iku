@@ -4,7 +4,10 @@ export interface QuarterData {
   realisasiLabel: string;
   capaian: number; // calculated as percentage of target
   status: "Tercapai" | "On Track" | "Perlu Perhatian" | "Belum Diisi";
-  justifikasi: string;
+  justifikasi: string; // Used for "Permasalahan"
+  rencanaTindakLanjut?: string;
+  catatanSPI?: string;
+  statusVerifikasiSPI?: "Sesuai" | "Perlu Perbaikan" | "Belum Diverifikasi";
   linkDokumen: string;
   updatedAt?: string;
   updatedBy?: string;
@@ -38,7 +41,7 @@ export interface Indicator {
 export interface UserSession {
   email: string;
   name: string;
-  role: "admin" | "pj";
+  role: "admin" | "pj" | "spi_verifier";
   pjName?: string; // which PJ they are, e.g., "Keuangan", "UPM", "SPI", etc.
   avatar?: string;
 }
