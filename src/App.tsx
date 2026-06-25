@@ -7,7 +7,7 @@ import HomeDashboard from "./components/HomeDashboard";
 import IndicatorTabs from "./components/IndicatorTabs";
 import PjBackend from "./components/PjBackend";
 import AdminPanel from "./components/AdminPanel";
-import LoadingSkeleton from "./components/LoadingSkeleton";
+import LoadingSkeleton from "./LoadingSkeleton";
 import { 
   Chrome, 
   LogIn, 
@@ -25,7 +25,7 @@ import {
   CloudOff,
   RefreshCw
 } from "lucide-react";
-import { collection, doc, getDocs, setDoc, writeBatch } from "firebase/firestore";
+import { collection, doc, getDocs, setDoc, writeBatch, deleteDoc } from "firebase/firestore";
 import { db } from "./firebase";
 
 export default function App() {
@@ -45,6 +45,19 @@ export default function App() {
     return [];
   });
 
+  const [selectedYear, setSelectedYear] = useState<number>(() => {
+    const savedYear = localStorage.getItem("PANTAU_IKU_SELECTED_YEAR");
+    if (savedYear) {
+      const yr = Number(savedYear);
+      if (yr >= 2026 && yr <= 2030) return yr;
+    }
+    return 2026;
+  });
+
+  useEffect(() => {
+    localStorage.setItem("PANTAU_IKU_SELECTED_YEAR", String(selectedYear));
+  }, [selectedYear]);
+
   const [selectedQuarter, setSelectedQuarter] = useState<QuarterName>("TW II"); // default evaluated quarter
   const [activeTab, setActiveTab] = useState<"dashboard" | "tabs" | "pj-backend" | "admin-panel">("dashboard");
   const [activeIndicatorKode, setActiveIndicatorKode] = useState<string>("IKM 17.3.1");
@@ -63,38 +76,43 @@ export default function App() {
         // Retrieve indicators directly from Firestore collection to optimize initial load speed (fetched once at mount)
         const querySnapshot = await getDocs(collection(db, "indicators"));
         if (querySnapshot.empty) {
-          // Cloud Firestore database is completely brand new/empty. Let's seed it!
+          // Cloud Firestore database is completely brand new/empty. Let's seed it for 2026!
           const batch = writeBatch(db);
-          INITIAL_INDICATORS.forEach(ind => {
-            const docRef = doc(db, "indicators", ind.kode);
+          const seeded = INITIAL_INDICATORS.map(ind => ({
+            ...ind,
+            tahun: 2026
+          }));
+
+          seeded.forEach(ind => {
+            const docId = `${ind.kode}_2026`;
+            const docRef = doc(db, "indicators", docId);
             batch.set(docRef, ind);
           });
           await batch.commit();
 
-          setIndicators(INITIAL_INDICATORS);
-          localStorage.setItem("PANTAU_IKU_DATA_2026", JSON.stringify(INITIAL_INDICATORS));
+          setIndicators(seeded);
+          localStorage.setItem("PANTAU_IKU_DATA_2026", JSON.stringify(seeded));
           setDbStatus("connected");
         } else {
           // Parse documents
           const fetched: Indicator[] = [];
           querySnapshot.forEach(docSnap => {
-            fetched.push(docSnap.data() as Indicator);
-          });
-
-          // Defensively merge with INITIAL_INDICATORS to preserve structure while restoring quarters entries
-          const merged = INITIAL_INDICATORS.map(initInd => {
-            const dbInd = fetched.find(p => p.kode === initInd.kode);
-            if (dbInd) {
-              return {
-                ...initInd,
-                quarters: dbInd.quarters
-              };
+            const data = docSnap.data() as Indicator;
+            if (!data.tahun) {
+              data.tahun = 2026;
             }
-            return initInd;
+            fetched.push(data);
           });
 
-          setIndicators(merged);
-          localStorage.setItem("PANTAU_IKU_DATA_2026", JSON.stringify(merged));
+          // Add any INITIAL_INDICATORS missing in the database for 2026
+          const missing = INITIAL_INDICATORS.filter(
+            initInd => !fetched.some(f => f.kode === initInd.kode && (f.tahun === 2026 || !f.tahun))
+          );
+          const finalFetched = [...fetched, ...missing.map(m => ({ ...m, tahun: 2026 }))];
+          finalFetched.sort((a, b) => a.no - b.no || a.kode.localeCompare(b.kode));
+
+          setIndicators(finalFetched);
+          localStorage.setItem("PANTAU_IKU_DATA_2026", JSON.stringify(finalFetched));
           setDbStatus("connected");
         }
       } catch (error) {
@@ -106,25 +124,26 @@ export default function App() {
         if (savedData) {
           try {
             const parsed = JSON.parse(savedData) as Indicator[];
-            const merged = INITIAL_INDICATORS.map(initInd => {
-              const userInd = parsed.find(p => p.kode === initInd.kode);
-              if (userInd) {
-                return {
-                  ...initInd,
-                  quarters: userInd.quarters
-                };
-              }
-              return initInd;
-            });
+            const mapped = parsed.map(p => ({ ...p, tahun: p.tahun || 2026 }));
+            
+            // Ensure 2026 templates are present
+            const missing = INITIAL_INDICATORS.filter(
+              initInd => !mapped.some(f => f.kode === initInd.kode && f.tahun === 2026)
+            );
+            const merged = [...mapped, ...missing.map(m => ({ ...m, tahun: 2026 }))];
+            merged.sort((a, b) => a.no - b.no || a.kode.localeCompare(b.kode));
+            
             setIndicators(merged);
           } catch {
             if (indicators.length === 0) {
-              setIndicators(INITIAL_INDICATORS);
+              const defaultList = INITIAL_INDICATORS.map(m => ({ ...m, tahun: 2026 }));
+              setIndicators(defaultList);
             }
           }
         } else {
           if (indicators.length === 0) {
-            setIndicators(INITIAL_INDICATORS);
+            const defaultList = INITIAL_INDICATORS.map(m => ({ ...m, tahun: 2026 }));
+            setIndicators(defaultList);
           }
         }
       }
@@ -143,10 +162,37 @@ export default function App() {
     }
   }, []);
 
+  const handleAddIndicator = async (newInd: Indicator) => {
+    setIsSyncing(true);
+    if (!newInd.tahun) {
+      newInd.tahun = selectedYear;
+    }
+    const updatedList = [...indicators, newInd];
+    setIndicators(updatedList);
+    localStorage.setItem("PANTAU_IKU_DATA_2026", JSON.stringify(updatedList));
+
+    try {
+      const docId = `${newInd.kode}_${newInd.tahun}`;
+      const docRef = doc(db, "indicators", docId);
+      await setDoc(docRef, newInd);
+    } catch (error) {
+      console.error("Failed to add indicator to Firestore:", error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   // Sync to Firestore & LocalStorage whenever indicators change
   const handleUpdateIndicator = async (updatedInd: Indicator) => {
     setIsSyncing(true);
-    const updatedList = indicators.map(ind => ind.kode === updatedInd.kode ? updatedInd : ind);
+    if (!updatedInd.tahun) {
+      updatedInd.tahun = selectedYear;
+    }
+    const updatedList = indicators.map(ind => 
+      (ind.kode === updatedInd.kode && (ind.tahun || 2026) === (updatedInd.tahun || 2026)) 
+        ? updatedInd 
+        : ind
+    );
     setIndicators(updatedList);
     
     // Update local copy
@@ -154,10 +200,87 @@ export default function App() {
 
     // Update Cloud Firestore document
     try {
-      const docRef = doc(db, "indicators", updatedInd.kode);
+      const docId = `${updatedInd.kode}_${updatedInd.tahun}`;
+      const docRef = doc(db, "indicators", docId);
       await setDoc(docRef, updatedInd);
     } catch (error) {
       console.error("Failed to sync updated indicator to Firestore:", error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleDeleteIndicator = async (kode: string, year: number) => {
+    setIsSyncing(true);
+    const updatedList = indicators.filter(ind => 
+      !(ind.kode === kode && (ind.tahun || 2026) === year)
+    );
+    setIndicators(updatedList);
+    localStorage.setItem("PANTAU_IKU_DATA_2026", JSON.stringify(updatedList));
+
+    try {
+      const docId = `${kode}_${year}`;
+      const docRef = doc(db, "indicators", docId);
+      await deleteDoc(docRef);
+    } catch (error) {
+      console.error("Failed to delete indicator from Firestore:", error);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handleCopyTemplates = async (targetYear: number) => {
+    setIsSyncing(true);
+    try {
+      // Find all indicators from 2026
+      const templateIndicators = indicators.filter(ind => (ind.tahun || 2026) === 2026);
+      if (templateIndicators.length === 0) {
+        alert("Tidak ada template IKU tahun 2026 yang dapat disalin.");
+        return;
+      }
+
+      // Clone them with the targetYear and clear the quarters reporting progress (isFilled: false, etc.)
+      const clonedList = templateIndicators.map(ind => {
+        // Reset filled state for quarters
+        const resetQuarters = JSON.parse(JSON.stringify(ind.quarters));
+        (["TW I", "TW II", "TW III", "TW IV"] as const).forEach(tw => {
+          const q = resetQuarters[tw];
+          q.isFilled = false;
+          q.realisasi = "";
+          q.realisasiLabel = "";
+          q.capaian = 0;
+          q.status = "Belum Diisi";
+          q.justifikasi = "";
+          q.linkDokumen = "";
+          // Reset variables back to 0
+          if (q.variables) {
+            Object.keys(q.variables).forEach(v => {
+              q.variables[v] = 0;
+            });
+          }
+        });
+
+        return {
+          ...ind,
+          tahun: targetYear,
+          quarters: resetQuarters
+        };
+      });
+
+      // Write to Firestore in batch
+      const batch = writeBatch(db);
+      clonedList.forEach(cloned => {
+        const docId = `${cloned.kode}_${targetYear}`;
+        const docRef = doc(db, "indicators", docId);
+        batch.set(docRef, cloned);
+      });
+      await batch.commit();
+
+      const newList = [...indicators, ...clonedList];
+      setIndicators(newList);
+      localStorage.setItem("PANTAU_IKU_DATA_2026", JSON.stringify(newList));
+    } catch (error) {
+      console.error("Failed to copy templates:", error);
     } finally {
       setIsSyncing(false);
     }
@@ -185,6 +308,8 @@ export default function App() {
     setActiveIndicatorKode(kode);
     setActiveTab("tabs");
   };
+
+  const yearFilteredIndicators = indicators.filter(ind => (ind.tahun || 2026) === selectedYear);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-800 selection:bg-teal-700 selection:text-white">
@@ -230,6 +355,21 @@ export default function App() {
           {/* Navigation and Login Section */}
           <div className="flex flex-wrap items-center gap-3">
             
+            {/* Year Selector Menu */}
+            <div className="flex items-center gap-2 bg-teal-900/60 border border-teal-700/50 p-1 px-2.5 rounded-lg">
+              <span className="text-[10px] font-black text-teal-200 tracking-wider uppercase font-mono">Tahun:</span>
+              <select
+                id="header-year-select"
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(Number(e.target.value))}
+                className="bg-transparent text-white font-extrabold text-xs focus:outline-none cursor-pointer pr-1 border-none font-sans"
+              >
+                {[2026, 2027, 2028, 2029, 2030].map(y => (
+                  <option key={y} value={y} className="bg-teal-900 text-white font-bold">{y}</option>
+                ))}
+              </select>
+            </div>
+
             {/* View navigation model */}
             <div className="flex bg-teal-900/50 p-1 rounded-lg border border-teal-600/30">
               <button
@@ -341,7 +481,7 @@ export default function App() {
           <>
             {activeTab === "dashboard" && (
               <HomeDashboard 
-                indicators={indicators} 
+                indicators={yearFilteredIndicators} 
                 selectedQuarter={selectedQuarter} 
                 onSelectIndicator={handleSelectIndicatorFromDashboard} 
               />
@@ -349,7 +489,7 @@ export default function App() {
 
             {activeTab === "tabs" && (
               <IndicatorTabs 
-                indicators={indicators} 
+                indicators={yearFilteredIndicators} 
                 selectedQuarter={selectedQuarter} 
                 activeIndicatorKode={activeIndicatorKode} 
                 setActiveIndicatorKode={setActiveIndicatorKode} 
@@ -358,7 +498,7 @@ export default function App() {
 
             {activeTab === "pj-backend" && userSession && (
               <PjBackend 
-                indicators={indicators} 
+                indicators={yearFilteredIndicators} 
                 session={userSession} 
                 onUpdateIndicator={handleUpdateIndicator} 
               />
@@ -366,9 +506,14 @@ export default function App() {
 
             {activeTab === "admin-panel" && userSession && (
               <AdminPanel 
-                indicators={indicators} 
+                indicators={yearFilteredIndicators} 
                 selectedQuarter={selectedQuarter} 
-                onSelectIndicator={handleSelectIndicatorFromDashboard} 
+                onSelectIndicator={handleSelectIndicatorFromDashboard}
+                onAddIndicator={handleAddIndicator}
+                onUpdateIndicator={handleUpdateIndicator}
+                onDeleteIndicator={handleDeleteIndicator}
+                onCopyTemplates={handleCopyTemplates}
+                selectedYear={selectedYear}
               />
             )}
           </>

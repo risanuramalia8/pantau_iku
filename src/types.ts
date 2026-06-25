@@ -9,6 +9,7 @@ export interface QuarterData {
   updatedAt?: string;
   updatedBy?: string;
   isFilled: boolean;
+  locked?: boolean;
 }
 
 export interface Indicator {
@@ -29,6 +30,9 @@ export interface Indicator {
     "TW III": QuarterData;
     "TW IV": QuarterData;
   };
+  tahun?: number;
+  target?: number;
+  targetLabel?: string;
 }
 
 export interface UserSession {

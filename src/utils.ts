@@ -1,4 +1,12 @@
-import { QuarterName } from "./types";
+import { QuarterName, Indicator } from "./types";
+
+export function getTargetValue(ind: Indicator): number {
+  return ind.target !== undefined ? ind.target : ind.target2026;
+}
+
+export function getTargetLabel(ind: Indicator): string {
+  return ind.targetLabel !== undefined ? ind.targetLabel : ind.target2026Label;
+}
 
 export function calculateRealisasi(kode: string, variables: { [key: string]: number }): { realisasi: number | string; label: string } {
   const keys = Object.keys(variables);
@@ -183,7 +191,7 @@ export function convertToIndonesianCSV(indicators: any[]): string {
   // Headers
   const headers = [
     "NO", "KODE", "INDIKATOR KINERJA", "DEFINISI OPERASIONAL", "FORMULA PERHITUNGAN REALISASI", 
-    "PJ", "PJ WADIR", "TARGET 2026", "SATUAN",
+    "PJ", "PJ WADIR", "TARGET TAHUNAN", "SATUAN",
     "REALISASI TW I", "CAPAIAN TW I", "STATUS TW I", "JUSTIFIKASI TW I", "LINK DOKUMEN TW I",
     "REALISASI TW II", "CAPAIAN TW II", "STATUS TW II", "JUSTIFIKASI TW II", "LINK DOKUMEN TW II",
     "REALISASI TW III", "CAPAIAN TW III", "STATUS TW III", "JUSTIFIKASI TW III", "LINK DOKUMEN TW III",
@@ -201,7 +209,7 @@ export function convertToIndonesianCSV(indicators: any[]): string {
       escapeCSVValue(ind.formulaPerhitungan),
       escapeCSVValue(ind.pj),
       escapeCSVValue(ind.pjWadir),
-      escapeCSVValue(ind.target2026Label),
+      escapeCSVValue(getTargetLabel(ind)),
       escapeCSVValue(ind.satuan),
       
       // Quarters data

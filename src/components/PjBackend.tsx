@@ -57,6 +57,7 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
   
   // Save notification toast state
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
+  const [isLocalEditing, setIsLocalEditing] = useState(false);
 
   // Sync state whenever the selected indicator or selected TW changes
   useEffect(() => {
@@ -70,7 +71,8 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
     setJustifikasi(qData.justifikasi || "");
     setLinkDokumen(qData.linkDokumen || "");
     setUploadedFiles(qData.linkDokumen ? [{ name: "Dokumen_Dukung_TW.pdf", size: "1.4 MB", status: "Uploaded" }] : []);
-  }, [activeKode, selectedTw, activeInd]);
+    setIsLocalEditing(!qData.isFilled);
+  }, [activeKode, selectedTw, activeInd, qData.isFilled]);
 
   // Handle variable change
   const handleVariableChange = (vName: string, val: string) => {
@@ -156,10 +158,12 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
       justifikasi,
       linkDokumen,
       updatedAt: new Date().toISOString(),
-      updatedBy: session.email
+      updatedBy: session.email,
+      locked: qData.locked || false
     };
 
     onUpdateIndicator(updatedIndicator);
+    setIsLocalEditing(false);
     
     // Show beautiful banner
     setShowSaveSuccess(true);
@@ -167,6 +171,8 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
       setShowSaveSuccess(false);
     }, 3000);
   };
+
+  const isFieldDisabled = !isLocalEditing || (qData?.locked === true);
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fade-in">
@@ -307,10 +313,15 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
                       step="any"
                       required
                       min="0"
+                      disabled={isFieldDisabled}
                       placeholder="Input nominal angka..."
                       value={variableInputs[varName] !== undefined ? variableInputs[varName] : ""}
                       onChange={(e) => handleVariableChange(varName, e.target.value)}
-                      className="w-full text-sm px-3.5 py-2 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-teal-700 font-bold text-teal-950 bg-white"
+                      className={`w-full text-sm px-3.5 py-2 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-teal-700 ${
+                        isFieldDisabled 
+                          ? "bg-slate-100 text-slate-500 cursor-not-allowed" 
+                          : "font-bold text-teal-950 bg-white"
+                      }`}
                     />
                   </div>
                 ))}
@@ -369,11 +380,16 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
                   <textarea
                     id="input-justifikasi"
                     required
+                    disabled={isFieldDisabled}
                     rows={3}
                     placeholder="Contoh: Proses Tracer Study sedang dipicu beriringan dengan pengumpulan laporan LTA..."
                     value={justifikasi}
                     onChange={(e) => setJustifikasi(e.target.value)}
-                    className="w-full text-xs px-3.5 py-2.5 border border-slate-200 bg-white rounded focus:outline-none focus:ring-1 focus:ring-teal-700 font-medium"
+                    className={`w-full text-xs px-3.5 py-2.5 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-teal-700 ${
+                      isFieldDisabled 
+                        ? "bg-slate-100 text-slate-500 cursor-not-allowed" 
+                        : "bg-white font-medium"
+                    }`}
                   />
                 </div>
 
@@ -387,10 +403,15 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
                       id="input-link-dokumen"
                       type="url"
                       required
+                      disabled={isFieldDisabled}
                       placeholder="https://drive.google.com/drive/folders/poltekkes-palembang/..."
                       value={linkDokumen}
                       onChange={(e) => setLinkDokumen(e.target.value)}
-                      className="w-full text-xs pl-9 pr-4 py-2 border border-slate-200 bg-white rounded focus:outline-none focus:ring-1 focus:ring-teal-700 font-mono font-bold text-teal-950"
+                      className={`w-full text-xs pl-9 pr-4 py-2 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-teal-700 font-mono font-bold ${
+                        isFieldDisabled 
+                          ? "bg-slate-100 text-slate-500 cursor-not-allowed" 
+                          : "text-teal-950 bg-white"
+                      }`}
                     />
                   </div>
                 </div>
@@ -402,15 +423,21 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
                   </label>
                   <div
                     id="dropzone"
-                    onDragEnter={handleDrag}
-                    onDragOver={handleDrag}
-                    onDragLeave={handleDrag}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`border-2 border-dashed rounded p-6 text-center cursor-pointer transition-all ${
-                      dragActive 
-                        ? "border-teal-700 bg-teal-50/50" 
-                        : "border-slate-200 hover:border-teal-600 bg-slate-50 hover:bg-teal-50/10 text-slate-600"
+                    onDragEnter={isFieldDisabled ? undefined : handleDrag}
+                    onDragOver={isFieldDisabled ? undefined : handleDrag}
+                    onDragLeave={isFieldDisabled ? undefined : handleDrag}
+                    onDrop={isFieldDisabled ? undefined : handleDrop}
+                    onClick={() => {
+                      if (!isFieldDisabled) {
+                        fileInputRef.current?.click();
+                      }
+                    }}
+                    className={`border-2 border-dashed rounded p-6 text-center transition-all ${
+                      isFieldDisabled
+                        ? "border-slate-200 bg-slate-100 text-slate-450 cursor-not-allowed opacity-65"
+                        : dragActive 
+                        ? "border-teal-700 bg-teal-50/50 cursor-pointer" 
+                        : "border-slate-200 hover:border-teal-600 bg-slate-50 hover:bg-teal-50/10 text-slate-600 cursor-pointer"
                     }`}
                   >
                     <input
@@ -419,6 +446,7 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
                       onChange={handleFileSelect}
                       className="hidden"
                       accept=".pdf,.xlsx,.csv,.doc,.docx"
+                      disabled={isFieldDisabled}
                     />
                     <UploadCloud className="w-8 h-8 text-slate-400 mx-auto mb-2" />
                     <p className="text-xs font-bold text-slate-700">Tarik & Lepaskan dokumen di sini</p>
@@ -450,13 +478,15 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
                               <p className="text-[9px] text-slate-400 font-bold font-sans">Ukuran file: {f.size} • Berhasil diunggah ke Google Drive</p>
                             </div>
                           </div>
-                          <button 
-                            type="button" 
-                            onClick={(e) => { e.stopPropagation(); setUploadedFiles([]); }}
-                            className="text-[10px] text-red-650 text-red-600 hover:underline font-bold font-sans"
-                          >
-                            Hapus
-                          </button>
+                          {!isFieldDisabled && (
+                            <button 
+                              type="button" 
+                              onClick={(e) => { e.stopPropagation(); setUploadedFiles([]); }}
+                              className="text-[10px] text-red-650 text-red-600 hover:underline font-bold font-sans"
+                            >
+                              Hapus
+                            </button>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -466,14 +496,81 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
               </div>
             </div>
 
-            <button
-              id="btn-save-indicator"
-              type="submit"
-              className="w-full py-3 bg-teal-800 hover:bg-teal-900 text-white font-extrabold rounded transition duration-150 flex items-center justify-center gap-2 shadow border border-teal-950 font-bold tracking-wide cursor-pointer text-sm"
-            >
-              <Save className="w-4 h-4" />
-              Simpan Pelaporan Realisasi {selectedTw}
-            </button>
+            {/* Status & Action Control */}
+            <div className="space-y-4 pt-2">
+              {qData?.locked ? (
+                <div className="p-4 bg-red-55 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 text-red-800">
+                  <span className="text-xl">🔒</span>
+                  <div className="space-y-1">
+                    <p className="font-bold text-xs text-red-900">Laporan Dikunci oleh Perencana</p>
+                    <p className="text-[11px] text-red-700 leading-normal">
+                      Pelaporan data realisasi {selectedTw} untuk indikator ini telah dikunci oleh admin Perencana untuk proses verifikasi. Perubahan data saat ini tidak diperbolehkan.
+                    </p>
+                  </div>
+                </div>
+              ) : qData?.isFilled && !isLocalEditing ? (
+                <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3 text-emerald-800">
+                  <span className="text-xl">✓</span>
+                  <div className="space-y-1">
+                    <p className="font-bold text-xs text-emerald-900">Laporan Sudah Dilaporkan</p>
+                    <p className="text-[11px] text-emerald-700 leading-normal">
+                      Data realisasi kuartal ini sudah tersimpan dengan aman dalam sistem. Silakan klik tombol <strong>"Edit Pelaporan Realisasi"</strong> di bawah jika Anda perlu melakukan penyesuaian data kembali.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+
+              <div className="flex flex-col sm:flex-row gap-3">
+                {qData?.locked ? (
+                  <button
+                    type="button"
+                    disabled
+                    className="w-full py-3 bg-slate-200 text-slate-400 font-extrabold rounded-lg flex items-center justify-center gap-2 cursor-not-allowed text-xs border border-slate-300"
+                  >
+                    <span>🔒 Pelaporan Dikunci & Selesai</span>
+                  </button>
+                ) : !isLocalEditing ? (
+                  <button
+                    id="btn-edit-indicator"
+                    type="button"
+                    onClick={() => setIsLocalEditing(true)}
+                    className="w-full py-3 bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-lg flex items-center justify-center gap-2 shadow border border-amber-750 cursor-pointer text-xs transition"
+                  >
+                    <span>📝 Edit Pelaporan Realisasi {selectedTw}</span>
+                  </button>
+                ) : (
+                  <>
+                    {qData?.isFilled && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          // Cancel and restore variables
+                          const initialInputs: { [key: string]: number } = {};
+                          activeInd.dataDibutuhkan.forEach((v) => {
+                            initialInputs[v] = qData.variables[v] || 0;
+                          });
+                          setVariableInputs(initialInputs);
+                          setJustifikasi(qData.justifikasi || "");
+                          setLinkDokumen(qData.linkDokumen || "");
+                          setIsLocalEditing(false);
+                        }}
+                        className="flex-1 py-3 bg-slate-200 hover:bg-slate-300 text-slate-700 font-extrabold rounded-lg flex items-center justify-center gap-2 cursor-pointer text-xs border border-slate-300 transition"
+                      >
+                        Batal Edit
+                      </button>
+                    )}
+                    <button
+                      id="btn-save-indicator"
+                      type="submit"
+                      className="flex-1 py-3 bg-teal-800 hover:bg-teal-900 text-white font-extrabold rounded-lg flex items-center justify-center gap-2 shadow border border-teal-950 cursor-pointer text-xs tracking-wide transition"
+                    >
+                      <Save className="w-4 h-4 text-yellow-400" />
+                      <span>Simpan Pelaporan Realisasi {selectedTw}</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
 
           </form>
 

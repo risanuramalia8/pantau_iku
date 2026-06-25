@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Indicator, QuarterName } from "../types";
-import { getStatusTW } from "../utils";
+import { getStatusTW, getTargetLabel } from "../utils";
 import { 
   TrendingUp, 
   AlertTriangle, 
@@ -427,7 +427,7 @@ export default function HomeDashboard({ indicators, selectedQuarter, onSelectInd
                         {ind.kode}
                       </span>
                       <span className="text-red-700 font-mono font-extrabold text-xs">
-                        Capaian: {ind.liveCapaian.toFixed(1)}% / {ind.target2026Label}
+                        Capaian: {ind.liveCapaian.toFixed(1)}% / {getTargetLabel(ind)}
                       </span>
                     </div>
 
