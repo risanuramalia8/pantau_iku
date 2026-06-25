@@ -180,12 +180,9 @@ export default function App() {
             {/* Auth Session Button */}
             {userSession ? (
               <div className="flex items-center gap-2 bg-teal-900/60 border border-teal-700/50 p-1 rounded-lg">
-                <img 
-                  src={userSession.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80"} 
-                  alt={userSession.name} 
-                  className="w-7 h-7 rounded-full border border-yellow-400 flex-shrink-0"
-                  referrerPolicy="no-referrer"
-                />
+                <div id="user-session-badge" className="w-7 h-7 rounded-full bg-yellow-500 text-teal-950 font-black text-xs flex items-center justify-center flex-shrink-0 border border-yellow-400">
+                  {userSession.pjName ? userSession.pjName.substring(0, 2).toUpperCase() : "AD"}
+                </div>
                 <div className="hidden sm:block text-left text-[11px] leading-tight max-w-[120px]">
                   <p className="font-bold text-white truncate">{userSession.name}</p>
                   <p className="text-[9px] text-yellow-400 truncate uppercase tracking-widest font-bold font-mono">

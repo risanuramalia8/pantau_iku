@@ -14,8 +14,7 @@ const SYSTEM_ACCOUNTS = [
     password: "admin123",
     name: "Admin Perencana Poltekkes",
     role: "admin" as const,
-    email: "admin.perencanaan@poltekkes-palembang.ac.id",
-    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80"
+    email: "admin.perencanaan@poltekkes-palembang.ac.id"
   },
   {
     username: "alumni_kerjasama",
@@ -23,8 +22,7 @@ const SYSTEM_ACCOUNTS = [
     name: "PJ Alumni dan Kerjasama",
     role: "pj" as const,
     pjName: "Alumni dan Kerjasama",
-    email: "alumni.kerjasama@poltekkes-palembang.ac.id",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&auto=format&fit=crop&q=80"
+    email: "alumni.kerjasama@poltekkes-palembang.ac.id"
   },
   {
     username: "akademik",
@@ -32,8 +30,7 @@ const SYSTEM_ACCOUNTS = [
     name: "PJ Akademik",
     role: "pj" as const,
     pjName: "Akademik",
-    email: "akademik@poltekkes-palembang.ac.id",
-    avatar: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&auto=format&fit=crop&q=80"
+    email: "akademik@poltekkes-palembang.ac.id"
   },
   {
     username: "p2m",
@@ -41,8 +38,7 @@ const SYSTEM_ACCOUNTS = [
     name: "PJ P2M",
     role: "pj" as const,
     pjName: "P2M",
-    email: "p2m@poltekkes-palembang.ac.id",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100&auto=format&fit=crop&q=80"
+    email: "p2m@poltekkes-palembang.ac.id"
   },
   {
     username: "kepegawaian",
@@ -50,8 +46,7 @@ const SYSTEM_ACCOUNTS = [
     name: "PJ Kepegawaian",
     role: "pj" as const,
     pjName: "Kepegawaian",
-    email: "kepegawaian@poltekkes-palembang.ac.id",
-    avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&auto=format&fit=crop&q=80"
+    email: "kepegawaian@poltekkes-palembang.ac.id"
   },
   {
     username: "upm",
@@ -59,8 +54,7 @@ const SYSTEM_ACCOUNTS = [
     name: "PJ UPM",
     role: "pj" as const,
     pjName: "UPM",
-    email: "upm@poltekkes-palembang.ac.id",
-    avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=100&auto=format&fit=crop&q=80"
+    email: "upm@poltekkes-palembang.ac.id"
   },
   {
     username: "bahasa",
@@ -68,8 +62,7 @@ const SYSTEM_ACCOUNTS = [
     name: "PJ Pengembangan Bahasa",
     role: "pj" as const,
     pjName: "Pengembangan Bahasa",
-    email: "bahasa@poltekkes-palembang.ac.id",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80"
+    email: "bahasa@poltekkes-palembang.ac.id"
   },
   {
     username: "kemahasiswaan",
@@ -77,8 +70,7 @@ const SYSTEM_ACCOUNTS = [
     name: "PJ Kemahasiswaan",
     role: "pj" as const,
     pjName: "Kemahasiswaan",
-    email: "kemahasiswaan@poltekkes-palembang.ac.id",
-    avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&auto=format&fit=crop&q=80"
+    email: "kemahasiswaan@poltekkes-palembang.ac.id"
   },
   {
     username: "spi",
@@ -86,8 +78,7 @@ const SYSTEM_ACCOUNTS = [
     name: "PJ SPI",
     role: "pj" as const,
     pjName: "SPI",
-    email: "spi@poltekkes-palembang.ac.id",
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
+    email: "spi@poltekkes-palembang.ac.id"
   },
   {
     username: "keuangan",
@@ -95,8 +86,7 @@ const SYSTEM_ACCOUNTS = [
     name: "PJ Keuangan",
     role: "pj" as const,
     pjName: "Keuangan",
-    email: "keuangan@poltekkes-palembang.ac.id",
-    avatar: "https://images.unsplash.com/photo-1554151228-14d9def656e4?w=100&auto=format&fit=crop&q=80"
+    email: "keuangan@poltekkes-palembang.ac.id"
   },
   {
     username: "upr",
@@ -104,8 +94,7 @@ const SYSTEM_ACCOUNTS = [
     name: "PJ UPR",
     role: "pj" as const,
     pjName: "UPR",
-    email: "upr@poltekkes-palembang.ac.id",
-    avatar: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=100&auto=format&fit=crop&q=80"
+    email: "upr@poltekkes-palembang.ac.id"
   }
 ];
 
@@ -150,8 +139,7 @@ export default function GoogleLoginModal({ isOpen, onClose, onLoginSuccess }: Go
         email: account.email,
         name: account.name,
         role: account.role,
-        pjName: account.role === "pj" ? account.pjName : undefined,
-        avatar: account.avatar
+        pjName: account.role === "pj" ? account.pjName : undefined
       });
       onClose();
     }, 850);
