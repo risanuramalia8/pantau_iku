@@ -136,11 +136,41 @@ export default function GoogleLoginModal({ isOpen, onClose, onLoginSuccess }: Go
   const [errorMsg, setErrorMsg] = useState("");
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
+  // Dynamic login states for new/custom PJ units (e.g. 2027+)
+  const [isCustomPjMode, setIsCustomPjMode] = useState(false);
+  const [customPjName, setCustomPjName] = useState("");
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg("");
+
+    if (isCustomPjMode) {
+      if (!customPjName.trim() || !password.trim()) {
+        setErrorMsg("Nama PJ Unit Baru dan password wajib diisi.");
+        return;
+      }
+
+      // Universal passcode for newly created PJs in 2027+
+      if (password !== "pj123") {
+        setErrorMsg("Kata sandi salah. Gunakan kata sandi default 'pj123' untuk unit baru.");
+        return;
+      }
+
+      setIsAuthenticating(true);
+      setTimeout(() => {
+        setIsAuthenticating(false);
+        onLoginSuccess({
+          email: `${customPjName.toLowerCase().replace(/[^a-z0-9]/g, "")}@poltekkes-palembang.ac.id`,
+          name: `PJ ${customPjName.trim()}`,
+          role: "pj" as const,
+          pjName: customPjName.trim()
+        });
+        onClose();
+      }, 850);
+      return;
+    }
 
     if (!username.trim() || !password.trim()) {
       setErrorMsg("Username dan password wajib diisi.");
@@ -206,6 +236,38 @@ export default function GoogleLoginModal({ isOpen, onClose, onLoginSuccess }: Go
             </div>
           ) : (
             <>
+              {/* Tabs */}
+              <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCustomPjMode(false);
+                    setErrorMsg("");
+                  }}
+                  className={`flex-1 text-center py-1.5 text-xs font-bold rounded-md transition ${
+                    !isCustomPjMode
+                      ? "bg-teal-800 text-white shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Akun Terdaftar (Sistem)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCustomPjMode(true);
+                    setErrorMsg("");
+                  }}
+                  className={`flex-1 text-center py-1.5 text-xs font-bold rounded-md transition ${
+                    isCustomPjMode
+                      ? "bg-teal-800 text-white shadow-sm"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  Unit Baru (Tahun 2027+)
+                </button>
+              </div>
+
               {/* Alert error */}
               {errorMsg && (
                 <div className="bg-red-50 border-l-4 border-red-500 p-3 text-xs text-red-800 font-semibold flex items-start gap-2.5 rounded">
@@ -216,25 +278,50 @@ export default function GoogleLoginModal({ isOpen, onClose, onLoginSuccess }: Go
 
               {/* Central Login Form */}
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="text-[11px] font-bold text-slate-500 tracking-wider uppercase block mb-1.5">
-                    Nama Pengguna (Username)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
-                      <User className="w-4 h-4" />
-                    </span>
-                    <input
-                      id="input-login-username"
-                      type="text"
-                      required
-                      placeholder="Contoh: admin atau pj_keuangan"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      className="w-full text-xs px-3.5 pl-9 py-2.5 border border-slate-200 rounded focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 font-bold text-slate-800 transition shadow-sm"
-                    />
+                {!isCustomPjMode ? (
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 tracking-wider uppercase block mb-1.5">
+                      Nama Pengguna (Username)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                        <User className="w-4 h-4" />
+                      </span>
+                      <input
+                        id="input-login-username"
+                        type="text"
+                        required={!isCustomPjMode}
+                        placeholder="Contoh: admin atau pj_keuangan"
+                        value={username}
+                        onChange={(e) => setUsername(e.target.value)}
+                        className="w-full text-xs px-3.5 pl-9 py-2.5 border border-slate-200 rounded focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 font-bold text-slate-800 transition shadow-sm"
+                      />
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-500 tracking-wider uppercase block mb-1.5">
+                      Nama Unit / Sektor Baru (Tahun 2027+)
+                    </label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400">
+                        <User className="w-4 h-4" />
+                      </span>
+                      <input
+                        id="input-login-custom-pj"
+                        type="text"
+                        required={isCustomPjMode}
+                        placeholder="Contoh: Kemitraan, Pusat Riset, dsb."
+                        value={customPjName}
+                        onChange={(e) => setCustomPjName(e.target.value)}
+                        className="w-full text-xs px-3.5 pl-9 py-2.5 border border-slate-200 rounded focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 font-bold text-slate-800 transition shadow-sm"
+                      />
+                    </div>
+                    <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed font-semibold">
+                      💡 Masukkan nama unit persis seperti yang diatur oleh Admin Perencana pada master IKU 2027.
+                    </p>
+                  </div>
+                )}
 
                 <div>
                   <label className="text-[11px] font-bold text-slate-500 tracking-wider uppercase block mb-1.5">
@@ -248,7 +335,7 @@ export default function GoogleLoginModal({ isOpen, onClose, onLoginSuccess }: Go
                       id="input-login-password"
                       type={showPassword ? "text" : "password"}
                       required
-                      placeholder="Masukkan kata sandi akun sistem"
+                      placeholder={isCustomPjMode ? "Masukkan sandi default unit baru (pj123)" : "Masukkan kata sandi akun sistem"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       className="w-full text-xs px-3.5 pl-9 pr-10 py-2.5 border border-slate-200 rounded focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 font-bold tracking-wide text-slate-800 transition shadow-sm"

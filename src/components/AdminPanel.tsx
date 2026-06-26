@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Indicator, QuarterName } from "../types";
 import { getStatusTW, convertToIndonesianCSV, getTargetLabel, getTargetValue } from "../utils";
+import { generateDocxReport, generatePptxReport } from "../utils/reportGenerator";
 import { 
   Download, 
   Search, 
@@ -19,7 +20,9 @@ import {
   X,
   AlertTriangle,
   Lock,
-  Unlock
+  Unlock,
+  FileText,
+  Presentation
 } from "lucide-react";
 
 interface AdminPanelProps {
@@ -46,7 +49,7 @@ export default function AdminPanel({
   const [searchTerm, setSearchTerm] = useState("");
   const [pjFilter, setPjFilter] = useState("Semua");
   const [wadirFilter, setWadirFilter] = useState("Semua");
-  const [activeTab, setActiveTab] = useState<"worksheet" | "summary" | "manage">("worksheet");
+  const [activeTab, setActiveTab] = useState<"rekap" | "worksheet" | "summary" | "manage">("rekap");
 
   // Master Management states
   const [isEditing, setIsEditing] = useState(false);
@@ -68,6 +71,13 @@ export default function AdminPanel({
   const [formPjWadir, setFormPjWadir] = useState("Wadir 1");
   const [formTahun, setFormTahun] = useState(selectedYear);
 
+  // Custom Penanggung Jawab Sektor states
+  const [formPjType, setFormPjType] = useState<"select" | "custom">("select");
+  const [customPjValue, setCustomPjValue] = useState("");
+
+  // Download Worksheet filters state
+  const [downloadScope, setDownloadScope] = useState<"all" | "TW I" | "TW II" | "TW III" | "TW IV">("all");
+
   // Form errors
   const [formError, setFormError] = useState("");
 
@@ -83,13 +93,31 @@ export default function AdminPanel({
     setFormIndikatorKinerja(ind.indikatorKinerja);
     setFormDefinisiOperasional(ind.definisiOperasional);
     setFormFormulaPerhitungan(ind.formulaPerhitungan);
-    setFormVariablesText(ind.dataDibutuhkan.join(", "));
+    setFormVariablesText(ind.dataDibutuhkan ? ind.dataDibutuhkan.join(", ") : "");
     setFormTarget(ind.target !== undefined ? ind.target : ind.target2026);
     setFormTargetLabel(ind.targetLabel !== undefined ? ind.targetLabel : ind.target2026Label);
     setFormSatuan(ind.satuan);
     setFormPj(ind.pj);
     setFormPjWadir(ind.pjWadir);
     setFormTahun(ind.tahun || 2026);
+
+    const standardPjs = ["Alumni dan Kerjasama", "Keuangan", "Akademik", "P2M", "Kepegawaian", "UPM", "Pengembangan Bahasa", "Kemahasiswaan", "SPI", "UPR", "Umum"];
+    if (standardPjs.includes(ind.pj)) {
+      setFormPjType("select");
+      setFormPj(ind.pj);
+      setCustomPjValue("");
+    } else {
+      setFormPjType("custom");
+      setFormPj("Akademik"); // Fallback select
+      setCustomPjValue(ind.pj);
+    }
+
+    setTimeout(() => {
+      const formEl = document.getElementById("indicator-form");
+      if (formEl) {
+        formEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 80);
   };
 
   const handleStartAdd = () => {
@@ -113,6 +141,15 @@ export default function AdminPanel({
     setFormPj("Akademik");
     setFormPjWadir("Wadir 1");
     setFormTahun(selectedYear);
+    setFormPjType("select");
+    setCustomPjValue("");
+
+    setTimeout(() => {
+      const formEl = document.getElementById("indicator-form");
+      if (formEl) {
+        formEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 80);
   };
 
   const handleCancelForm = () => {
@@ -168,6 +205,12 @@ export default function AdminPanel({
       });
     });
 
+    const finalPj = formPjType === "custom" ? customPjValue.trim() : formPj.trim();
+    if (!finalPj) {
+      setFormError("Penanggung Jawab (PJ) Sektor wajib dipilih atau diisi.");
+      return;
+    }
+
     const finalIndicator: Indicator = {
       no: Number(formNo),
       kode: formKode.trim(),
@@ -180,7 +223,7 @@ export default function AdminPanel({
       target: Number(formTarget),
       targetLabel: formTargetLabel.trim(),
       satuan: formSatuan.trim(),
-      pj: formPj.trim(),
+      pj: finalPj,
       pjWadir: formPjWadir,
       quarters: updatedQuarters,
       tahun: Number(formTahun)
@@ -222,15 +265,69 @@ export default function AdminPanel({
 
   // Handle download of Worksheet
   const handleDownloadWorksheet = () => {
-    const csvContent = convertToIndonesianCSV(indicators);
+    const csvContent = convertToIndonesianCSV(indicators, downloadScope);
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `Worksheet_PANTAU_IKU_Poltekkes_Palembang_${new Date().getFullYear()}.csv`);
+    
+    let suffix = "Keseluruhan";
+    if (downloadScope === "TW I") suffix = "Triwulan_I";
+    else if (downloadScope === "TW II") suffix = "Triwulan_II";
+    else if (downloadScope === "TW III") suffix = "Triwulan_III";
+    else if (downloadScope === "TW IV") suffix = "Triwulan_IV";
+
+    link.setAttribute("download", `Worksheet_PANTAU_IKU_Poltekkes_Palembang_${suffix}_${selectedYear}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // Handle generating Word Report
+  const handleDownloadDocxReport = async () => {
+    try {
+      const blob = await generateDocxReport(
+        indicators,
+        downloadScope,
+        "Laporan Kinerja Utama Poltekkes Palembang",
+        `Laporan Evaluasi Capaian Indikator Kinerja Utama (IKU) - Tahun ${selectedYear}`,
+        "Admin Perencana & Evaluasi"
+      );
+      
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      
+      let suffix = "Keseluruhan";
+      if (downloadScope === "TW I") suffix = "Triwulan_I";
+      else if (downloadScope === "TW II") suffix = "Triwulan_II";
+      else if (downloadScope === "TW III") suffix = "Triwulan_III";
+      else if (downloadScope === "TW IV") suffix = "Triwulan_IV";
+
+      link.setAttribute("download", `Laporan_IKU_Poltekkes_Palembang_${suffix}_${selectedYear}.docx`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error("Gagal generate DOCX:", err);
+      alert("Gagal men-generate laporan Word.");
+    }
+  };
+
+  // Handle generating PowerPoint Report
+  const handleDownloadPptxReport = async () => {
+    try {
+      await generatePptxReport(
+        indicators,
+        downloadScope,
+        "Laporan Capaian Indikator Kinerja Utama",
+        `Poltekkes Kemenkes Palembang - Tahun ${selectedYear}`,
+        "Admin Perencana & Evaluasi"
+      );
+    } catch (err) {
+      console.error("Gagal generate PPTX:", err);
+      alert("Gagal men-generate presentasi PowerPoint.");
+    }
   };
 
   // Status statistics for summary
@@ -271,18 +368,70 @@ export default function AdminPanel({
           <p className="text-xs text-slate-500 mt-1">Unduh worksheet induk, kelola akurasi entri penanggung jawab, dan pantau milestone.</p>
         </div>
 
-        <button
-          id="btn-download-worksheet"
-          onClick={handleDownloadWorksheet}
-          className="px-5 py-3 bg-teal-800 hover:bg-teal-900 text-white font-extrabold text-xs rounded flex items-center justify-center gap-2.5 shadow border border-teal-950 transition duration-150 transform hover:scale-[1.01] cursor-pointer"
-        >
-          <Download className="w-4.5 h-4.5 text-yellow-400 animate-bounce" />
-          <span>Download Worksheet (CSV/MS Excel)</span>
-        </button>
+        <div className="flex flex-col lg:flex-row items-start lg:items-end gap-3.5 flex-wrap">
+          <div className="flex flex-col gap-1 w-full lg:w-auto">
+            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-0.5">Filter Cakupan Unduhan:</span>
+            <select
+              id="select-download-scope"
+              value={downloadScope}
+              onChange={(e) => setDownloadScope(e.target.value as any)}
+              className="text-xs p-2 px-3 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded font-bold text-slate-700 focus:ring-1 focus:ring-teal-700 focus:outline-none cursor-pointer transition-colors min-w-[200px]"
+            >
+              <option value="all">Keseluruhan (TW I - TW IV)</option>
+              <option value="TW I">Hanya Triwulan I (TW I)</option>
+              <option value="TW II">Hanya Triwulan II (TW II)</option>
+              <option value="TW III">Hanya Triwulan III (TW III)</option>
+              <option value="TW IV">Hanya Triwulan IV (TW IV)</option>
+            </select>
+          </div>
+
+          <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
+            <button
+              id="btn-download-worksheet"
+              onClick={handleDownloadWorksheet}
+              title="Unduh data bentuk CSV/Excel"
+              className="px-4 py-2 bg-teal-800 hover:bg-teal-900 text-white font-extrabold text-xs rounded flex items-center justify-center gap-2 shadow border border-teal-950 transition duration-150 transform hover:scale-[1.01] cursor-pointer h-[38px]"
+            >
+              <Download className="w-4 h-4 text-yellow-450 text-yellow-400" />
+              <span>Worksheet (CSV)</span>
+            </button>
+
+            <button
+              id="btn-download-docx"
+              onClick={handleDownloadDocxReport}
+              title="Unduh laporan narasi lengkap Word (DOCX)"
+              className="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white font-extrabold text-xs rounded flex items-center justify-center gap-2 shadow border border-blue-950 transition duration-150 transform hover:scale-[1.01] cursor-pointer h-[38px]"
+            >
+              <FileText className="w-4 h-4 text-blue-200" />
+              <span>Laporan (DOCX)</span>
+            </button>
+
+            <button
+              id="btn-download-pptx"
+              onClick={handleDownloadPptxReport}
+              title="Unduh deck slide presentasi PowerPoint (PPTX)"
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-extrabold text-xs rounded flex items-center justify-center gap-2 shadow border border-amber-950 transition duration-150 transform hover:scale-[1.01] cursor-pointer h-[38px]"
+            >
+              <Presentation className="w-4 h-4 text-amber-200" />
+              <span>Presentasi (PPTX)</span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* 2. Admin Dashboard View Selection (Worksheet, Summary, or Manage) */}
-      <div className="flex bg-white p-1 rounded-xl border border-slate-200 max-w-xl shadow-sm">
+      <div className="flex bg-white p-1 rounded-xl border border-slate-200 max-w-2xl shadow-sm">
+        <button
+          id="tab-btn-rekap-view"
+          onClick={() => setActiveTab("rekap")}
+          className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all ${
+            activeTab === "rekap"
+              ? "bg-teal-800 text-white shadow-sm"
+              : "text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          Rekapitulasi Isian Unit
+        </button>
         <button
           id="tab-btn-worksheet-view"
           onClick={() => setActiveTab("worksheet")}
@@ -318,7 +467,193 @@ export default function AdminPanel({
         </button>
       </div>
 
-      {activeTab === "worksheet" ? (
+      {activeTab === "rekap" ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-6">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-100">
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm">Rincian Kepatuhan Pengisian Unit (Seluruh Indikator)</h3>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Pantau progres dan kelengkapan input data realisasi IKU oleh seluruh Unit Pelaksana secara real-time.
+              </p>
+            </div>
+            <div className="text-[10px] font-black text-slate-500 uppercase tracking-wider bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>SINKRONISASI AKTIF</span>
+            </div>
+          </div>
+
+          {/* Quick compliance stats grid */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {(["TW I", "TW II", "TW III", "TW IV"] as QuarterName[]).map(tw => {
+              const filled = indicators.filter(ind => ind.quarters[tw].isFilled).length;
+              const total = indicators.length;
+              const pct = Math.round((filled / total) * 100) || 0;
+              return (
+                <div key={tw} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-left flex flex-col justify-between h-20">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">{tw}</span>
+                  <div className="flex justify-between items-baseline mt-1">
+                    <span className="text-base font-extrabold font-mono text-slate-900">{filled} / {total} <span className="text-[10px] text-slate-400 font-semibold">Unit</span></span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                      pct === 100 ? "bg-emerald-100 text-emerald-800" :
+                      pct >= 50 ? "bg-amber-100 text-amber-800" :
+                      "bg-rose-100 text-rose-800"
+                    }`}>{pct}%</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Table Filters header */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 py-1">
+            <div className="relative w-full md:w-80">
+              <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-400" />
+              <input
+                id="rekap-search"
+                type="text"
+                placeholder="Cari Kode atau Indikator Kinerja..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 pr-4 py-2 w-full text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-teal-600 font-medium"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 w-full md:w-auto">
+              <div className="flex items-center gap-1">
+                <Building className="w-4 h-4 text-gray-400" />
+                <select
+                  id="rekap-pj-filter"
+                  value={pjFilter}
+                  onChange={(e) => setPjFilter(e.target.value)}
+                  className="text-xs border border-gray-200 rounded-lg p-1.5 focus:outline-none focus:ring-1 focus:ring-teal-500 font-medium text-gray-700"
+                >
+                  <option value="Semua">Unit PJ: Semua</option>
+                  {uniquePJs.map(p => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <UserCheck className="w-4 h-4 text-gray-400" />
+                <select
+                  id="rekap-wadir-filter"
+                  value={wadirFilter}
+                  onChange={(e) => setWadirFilter(e.target.value)}
+                  className="text-xs border border-gray-200 rounded-lg p-1.5 focus:outline-none focus:ring-1 focus:ring-teal-500 font-medium text-gray-700"
+                >
+                  <option value="Semua">Pembina: Semua Wadir</option>
+                  {uniqueWadirs.map(w => (
+                    <option key={w} value={w}>{w}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Big Rekap Table */}
+          <div className="overflow-x-auto rounded-xl border border-slate-200 shadow-sm max-h-[600px]">
+            <table className="min-w-full divide-y divide-slate-200 text-xs">
+              <thead className="bg-slate-100 font-sans font-bold text-slate-600 uppercase text-[10px] tracking-wider sticky top-0 z-10">
+                <tr>
+                  <th scope="col" className="px-4 py-3.5 text-center font-bold">KODE</th>
+                  <th scope="col" className="px-4 py-3.5 text-left font-bold w-[35%]">INDIKATOR KINERJA UTAMA</th>
+                  <th scope="col" className="px-4 py-3.5 text-left font-bold">UNIT PELAKSANA (PJ)</th>
+                  <th scope="col" className="px-3 py-3.5 text-center font-bold">TW I</th>
+                  <th scope="col" className="px-3 py-3.5 text-center font-bold">TW II</th>
+                  <th scope="col" className="px-3 py-3.5 text-center font-bold">TW III</th>
+                  <th scope="col" className="px-3 py-3.5 text-center font-bold">TW IV</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-slate-100">
+                {filteredIndicators.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-6 py-12 text-center text-gray-400 font-bold">
+                      Tidak ada hasil yang sesuai dengan filter
+                    </td>
+                  </tr>
+                ) : (
+                  filteredIndicators.map((ind) => (
+                    <tr key={ind.kode} className="hover:bg-slate-50/50 transition">
+                      {/* Kode */}
+                      <td className="px-4 py-4 text-center whitespace-nowrap font-mono font-bold text-[10px]">
+                        <span className="bg-teal-50 text-teal-800 border border-teal-100 px-2.5 py-0.5 rounded">
+                          {ind.kode}
+                        </span>
+                      </td>
+                      {/* Indikator Kinerja */}
+                      <td className="px-4 py-4">
+                        <div>
+                          <p className="font-extrabold text-slate-800 leading-normal">{ind.indikatorKinerja}</p>
+                          <p className="text-[10px] text-slate-400 mt-1 line-clamp-1 italic">"DO: {ind.definisiOperasional}"</p>
+                        </div>
+                      </td>
+                      {/* Unit PJ */}
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <span className="font-bold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded text-[10px]">
+                          {ind.pj || "Sektor"}
+                        </span>
+                      </td>
+                      {/* Quarters Status */}
+                      {(["TW I", "TW II", "TW III", "TW IV"] as QuarterName[]).map((tw) => {
+                        const q = ind.quarters[tw];
+                        if (q.isFilled) {
+                          const isWadirFilled = q.updatedBy && q.updatedBy.toLowerCase().includes("wadir");
+                          return (
+                            <td key={tw} className="px-3 py-4 text-center">
+                              <button
+                                onClick={() => onSelectIndicator(ind.kode)}
+                                className="text-left w-full p-2 rounded bg-emerald-50 border border-emerald-150 text-emerald-850 hover:bg-emerald-100 transition flex flex-col gap-0.5 group cursor-pointer"
+                                title={`Diisi oleh: ${q.updatedBy || 'Unit'}. Klik untuk meninjau.`}
+                              >
+                                <span className="text-[8px] font-bold text-emerald-700 flex items-center gap-1">
+                                  <span>✓</span>
+                                  <span>{isWadirFilled ? "WADIR" : "TERISI"}</span>
+                                </span>
+                                <span className="text-[10.5px] font-mono font-bold text-emerald-950">
+                                  {typeof q.capaian === 'number' ? q.capaian.toFixed(1) : q.capaian}%
+                                </span>
+                                <span className={`text-[8px] font-black px-1 rounded-sm self-start uppercase mt-0.5 ${
+                                  q.status === "Tercapai" ? "bg-emerald-200/50 text-emerald-900" :
+                                  q.status === "On Track" ? "bg-amber-200/50 text-amber-900" :
+                                  "bg-rose-200/50 text-rose-900"
+                                }`}>
+                                  {q.status}
+                                </span>
+                              </button>
+                            </td>
+                          );
+                        } else {
+                          return (
+                            <td key={tw} className="px-3 py-4 text-center">
+                              <button
+                                onClick={() => onSelectIndicator(ind.kode)}
+                                className="text-left w-full p-2 rounded bg-slate-50 hover:bg-teal-50 border border-slate-200 hover:border-teal-200 text-slate-400 hover:text-teal-700 transition flex flex-col gap-1 group cursor-pointer"
+                                title="Belum dilaporkan. Klik untuk meninjau detail."
+                              >
+                                <span className="text-[8px] font-bold flex items-center gap-1 text-slate-400 group-hover:text-teal-600">
+                                  <span className="animate-pulse text-amber-500">●</span>
+                                  <span>BELUM</span>
+                                </span>
+                                <span className="text-[9px] font-bold text-teal-850 hidden group-hover:block transition">
+                                  Detail →
+                                </span>
+                                <span className="text-[9px] font-bold text-slate-400 block group-hover:hidden">
+                                  Kosong
+                                </span>
+                              </button>
+                            </td>
+                          );
+                        }
+                      })}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : activeTab === "worksheet" ? (
         <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm space-y-4">
           
           {/* Table Filters header */}
@@ -492,7 +827,7 @@ export default function AdminPanel({
                         <strong className="text-emerald-600">{qGroup.stats.tercapai} IKU</strong>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-gray-500 font-semibold">On Track (Kuartal):</span>
+                        <span className="text-gray-500 font-semibold">On Track (Triwulan):</span>
                         <strong className="text-lime-600">{qGroup.stats.ontrack} IKU</strong>
                       </div>
                       <div className="flex justify-between">
@@ -515,7 +850,7 @@ export default function AdminPanel({
             <div>
               <h3 className="text-sm font-extrabold text-slate-800 flex items-center gap-2">
                 <FolderLock className="w-4.5 h-4.5 text-teal-800" />
-                <span>Penguncian Laporan Realisasi Kuartal (Admin Perencana)</span>
+                <span>Penguncian Laporan Realisasi Triwulan (Admin Perencana)</span>
               </h3>
               <p className="text-xs text-slate-500 mt-1">
                 Kunci laporan yang sudah diisi oleh PJ agar data menjadi permanen dan tidak dapat diedit kembali oleh kontributor unit tanpa persetujuan Perencana.
@@ -613,7 +948,7 @@ export default function AdminPanel({
             
             <div className="text-[10.5px] text-slate-500 font-semibold flex items-center gap-1.5 bg-slate-50 p-2.5 rounded border border-slate-150">
               <span className="text-amber-600 font-bold">Catatan Perencana:</span>
-              <span>Laporan yang dikunci akan ditandai dengan label Terkunci 🔒. Unit PJ bersangkutan tidak akan bisa melakukan pengisian atau perubahan realisasi kuartal sampai kunci dibuka kembali.</span>
+              <span>Laporan yang dikunci akan ditandai dengan label Terkunci 🔒. Unit PJ bersangkutan tidak akan bisa melakukan pengisian atau perubahan realisasi triwulan sampai kunci dibuka kembali.</span>
             </div>
           </div>
         </div>
@@ -650,7 +985,7 @@ export default function AdminPanel({
 
           {/* Form Editor Block */}
           {(isAdding || isEditing) && (
-            <form onSubmit={handleSaveForm} className="bg-slate-50/50 rounded-xl border border-slate-200 p-5 space-y-4 animate-fade-in">
+            <form id="indicator-form" onSubmit={handleSaveForm} className="bg-slate-50/50 rounded-xl border border-slate-200 p-5 space-y-4 animate-fade-in">
               <div className="flex items-center justify-between pb-3 border-b border-slate-200">
                 <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                   <Edit className="w-4 h-4 text-teal-700" /> 
@@ -771,7 +1106,7 @@ export default function AdminPanel({
                   required
                 />
                 <span className="text-[10px] text-slate-400 block font-medium leading-normal">
-                  Variabel ini akan menghasilkan kolom input otomatis pada dashboard Isian Penanggung Jawab (PJ) di setiap kuartal (TW).
+                  Variabel ini akan menghasilkan kolom input otomatis pada dashboard Isian Penanggung Jawab (PJ) di setiap triwulan (TW).
                 </span>
               </div>
 
@@ -802,19 +1137,59 @@ export default function AdminPanel({
                   />
                 </div>
 
-                {/* PJ Sektor */}
-                <div className="space-y-1">
-                  <label className="text-[10.5px] font-bold text-slate-600 block">Penanggung Jawab (PJ) Sektor</label>
-                  <select
-                    value={formPj}
-                    onChange={(e) => setFormPj(e.target.value)}
-                    className="w-full text-xs p-2 bg-white border border-slate-200 rounded focus:ring-1 focus:ring-teal-700 focus:outline-none font-semibold text-slate-700"
-                  >
-                    {["Alumni dan Kerjasama", "Keuangan", "Akademik", "P2M", "Kepegawaian", "UPM", "Pengembangan Bahasa", "Kemahasiswaan", "SPI", "UPR", "Umum"].map(pjName => (
-                      <option key={pjName} value={pjName}>{pjName}</option>
-                    ))}
-                  </select>
-                </div>
+                 {/* PJ Sektor */}
+                 <div className="space-y-1">
+                   <label className="text-[10.5px] font-bold text-slate-600 block">Penanggung Jawab (PJ) Sektor</label>
+                   <div className="flex gap-1.5 mb-1.5">
+                     <button
+                       type="button"
+                       onClick={() => setFormPjType("select")}
+                       className={`px-2.5 py-1 text-[10px] font-bold rounded border transition-colors cursor-pointer ${
+                         formPjType === "select"
+                           ? "bg-teal-800 text-white border-teal-900"
+                           : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                       }`}
+                     >
+                       Pilih Daftar
+                     </button>
+                     <button
+                       type="button"
+                       onClick={() => setFormPjType("custom")}
+                       className={`px-2.5 py-1 text-[10px] font-bold rounded border transition-colors cursor-pointer ${
+                         formPjType === "custom"
+                           ? "bg-teal-800 text-white border-teal-900"
+                           : "bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100"
+                       }`}
+                     >
+                       + Ketik Unit Baru
+                     </button>
+                   </div>
+
+                   {formPjType === "select" ? (
+                     <select
+                       value={formPj}
+                       onChange={(e) => setFormPj(e.target.value)}
+                       className="w-full text-xs p-2 bg-white border border-slate-200 rounded focus:ring-1 focus:ring-teal-700 focus:outline-none font-semibold text-slate-700"
+                     >
+                       {Array.from(new Set([
+                         "Alumni dan Kerjasama", "Keuangan", "Akademik", "P2M", "Kepegawaian", 
+                         "UPM", "Pengembangan Bahasa", "Kemahasiswaan", "SPI", "UPR", "Umum",
+                         ...indicators.map(ind => ind.pj).filter(Boolean)
+                       ])).sort().map(pjName => (
+                         <option key={pjName} value={pjName}>{pjName}</option>
+                       ))}
+                     </select>
+                   ) : (
+                     <input
+                       type="text"
+                       placeholder="Ketik nama Unit PJ Baru..."
+                       value={customPjValue}
+                       onChange={(e) => setCustomPjValue(e.target.value)}
+                       className="w-full text-xs p-2 bg-white border border-slate-200 rounded focus:ring-1 focus:ring-teal-700 focus:outline-none font-bold"
+                       required={formPjType === "custom"}
+                     />
+                   )}
+                 </div>
 
                 {/* Wadir */}
                 <div className="space-y-1">
@@ -873,14 +1248,14 @@ export default function AdminPanel({
                         <button
                           type="button"
                           onClick={() => {
-                            if (window.confirm(`Salin seluruh template indikator & PJ dari tahun anggaran 2026 ke tahun ${selectedYear}?`)) {
+                            if (window.confirm(`Salin seluruh template indikator & PJ dari tahun anggaran sebelumnya ke tahun ${selectedYear}?`)) {
                               onCopyTemplates(selectedYear);
                             }
                           }}
                           className="px-4 py-2 bg-teal-800 hover:bg-teal-900 text-white font-extrabold text-xs rounded-lg shadow cursor-pointer inline-flex items-center gap-1.5 transition"
                         >
                           <Plus className="w-3.5 h-3.5 text-yellow-400" />
-                          <span>Salin Seluruh IKU dari Tahun 2026</span>
+                          <span>Salin Seluruh IKU dari Tahun Sebelumnya</span>
                         </button>
                       )}
                     </td>

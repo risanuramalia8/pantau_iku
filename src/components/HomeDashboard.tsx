@@ -266,7 +266,7 @@ export default function HomeDashboard({
 
           <div className="bg-teal-50/50 border border-teal-100 rounded-lg p-3.5 text-[11px] text-teal-800 space-y-1">
             <div className="font-bold text-teal-900">Informasi Penilaian IKU:</div>
-            <div>Agar dinilai <strong className="text-teal-950">On Track</strong>, masing-masing indikator harus memenuhi target kuartalan minimum yaitu: <strong className="text-teal-700 underline font-extrabold">{targetThreshold}%</strong>.</div>
+            <div>Agar dinilai <strong className="text-teal-950">On Track</strong>, masing-masing indikator harus memenuhi target triwulanan minimum yaitu: <strong className="text-teal-700 underline font-extrabold">{targetThreshold}%</strong>.</div>
           </div>
         </div>
 

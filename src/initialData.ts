@@ -480,7 +480,7 @@ export const INITIAL_INDICATORS: Indicator[] = [
     target2026Label: "83 Nilai",
     satuan: "Nilai",
     pj: "SPI",
-    pjWadir: "SPI",
+    pjWadir: "Wadir 2",
     quarters: {
       "TW I": {
         isFilled: true,

@@ -139,8 +139,26 @@ export function calculateRealisasi(kode: string, variables: { [key: string]: num
       const a = variables["Persentase Mutasi Pegawai antar Satuan Kerja"] || 0;
       return { realisasi: a, label: a + "%" };
     }
-    default:
-      return { realisasi: 0, label: "0" };
+    default: {
+      const keys = Object.keys(variables);
+      if (keys.length === 0) {
+        return { realisasi: 0, label: "0" };
+      }
+      if (keys.length === 1) {
+        const val = variables[keys[0]] || 0;
+        return { realisasi: val, label: String(val) };
+      }
+      if (keys.length === 2) {
+        const a = variables[keys[0]] || 0;
+        const b = variables[keys[1]] || 0;
+        if (b === 0) return { realisasi: 0, label: "0%" };
+        const val = (a / b) * 100;
+        return { realisasi: Number(val.toFixed(2)), label: val.toFixed(2) + "%" };
+      }
+      // Sum fallback
+      const sum = keys.reduce((acc, k) => acc + (variables[k] || 0), 0);
+      return { realisasi: sum, label: String(sum) };
+    }
   }
 }
 
@@ -184,19 +202,37 @@ export function getStatusTW(tw: QuarterName, capaian: number, isFilled: boolean)
 }
 
 // Function to convert data into beautiful Indonesian-friendly CSV
-export function convertToIndonesianCSV(indicators: any[]): string {
+export function convertToIndonesianCSV(
+  indicators: any[], 
+  selectedQuarter: "all" | "TW I" | "TW II" | "TW III" | "TW IV" = "all"
+): string {
   // BOM for Excel UTF-8 compliance
   let csv = "\uFEFF";
   
-  // Headers
-  const headers = [
+  // Base headers
+  const baseHeaders = [
     "NO", "KODE", "INDIKATOR KINERJA", "DEFINISI OPERASIONAL", "FORMULA PERHITUNGAN REALISASI", 
-    "PJ", "PJ WADIR", "TARGET TAHUNAN", "SATUAN",
-    "REALISASI TW I", "CAPAIAN TW I", "STATUS TW I", "JUSTIFIKASI TW I", "LINK DOKUMEN TW I",
-    "REALISASI TW II", "CAPAIAN TW II", "STATUS TW II", "JUSTIFIKASI TW II", "LINK DOKUMEN TW II",
-    "REALISASI TW III", "CAPAIAN TW III", "STATUS TW III", "JUSTIFIKASI TW III", "LINK DOKUMEN TW III",
-    "REALISASI TW IV", "CAPAIAN TW IV", "STATUS TW IV", "JUSTIFIKASI TW IV", "LINK DOKUMEN TW IV",
+    "PJ", "PJ WADIR", "TARGET TAHUNAN", "SATUAN"
   ];
+  
+  let headers = [...baseHeaders];
+  
+  if (selectedQuarter === "all") {
+    headers.push(
+      "REALISASI TW I", "CAPAIAN TW I", "STATUS TW I", "JUSTIFIKASI TW I", "LINK DOKUMEN TW I",
+      "REALISASI TW II", "CAPAIAN TW II", "STATUS TW II", "JUSTIFIKASI TW II", "LINK DOKUMEN TW II",
+      "REALISASI TW III", "CAPAIAN TW III", "STATUS TW III", "JUSTIFIKASI TW III", "LINK DOKUMEN TW III",
+      "REALISASI TW IV", "CAPAIAN TW IV", "STATUS TW IV", "JUSTIFIKASI TW IV", "LINK DOKUMEN TW IV"
+    );
+  } else {
+    headers.push(
+      `REALISASI ${selectedQuarter}`,
+      `CAPAIAN ${selectedQuarter}`,
+      `STATUS ${selectedQuarter}`,
+      `JUSTIFIKASI ${selectedQuarter}`,
+      `LINK DOKUMEN ${selectedQuarter}`
+    );
+  }
   
   csv += headers.join(";") + "\n";
   
@@ -210,33 +246,46 @@ export function convertToIndonesianCSV(indicators: any[]): string {
       escapeCSVValue(ind.pj),
       escapeCSVValue(ind.pjWadir),
       escapeCSVValue(getTargetLabel(ind)),
-      escapeCSVValue(ind.satuan),
-      
-      // Quarters data
-      escapeCSVValue(ind.quarters["TW I"].realisasiLabel || ""),
-      escapeCSVValue(ind.quarters["TW I"].isFilled ? `${ind.quarters["TW I"].capaian.toFixed(2)}%` : ""),
-      escapeCSVValue(ind.quarters["TW I"].status || "Belum Diisi"),
-      escapeCSVValue(ind.quarters["TW I"].justifikasi || ""),
-      escapeCSVValue(ind.quarters["TW I"].linkDokumen || ""),
-
-      escapeCSVValue(ind.quarters["TW II"].realisasiLabel || ""),
-      escapeCSVValue(ind.quarters["TW II"].isFilled ? `${ind.quarters["TW II"].capaian.toFixed(2)}%` : ""),
-      escapeCSVValue(ind.quarters["TW II"].status || "Belum Diisi"),
-      escapeCSVValue(ind.quarters["TW II"].justifikasi || ""),
-      escapeCSVValue(ind.quarters["TW II"].linkDokumen || ""),
-
-      escapeCSVValue(ind.quarters["TW III"].realisasiLabel || ""),
-      escapeCSVValue(ind.quarters["TW III"].isFilled ? `${ind.quarters["TW III"].capaian.toFixed(2)}%` : ""),
-      escapeCSVValue(ind.quarters["TW III"].status || "Belum Diisi"),
-      escapeCSVValue(ind.quarters["TW III"].justifikasi || ""),
-      escapeCSVValue(ind.quarters["TW III"].linkDokumen || ""),
-
-      escapeCSVValue(ind.quarters["TW IV"].realisasiLabel || ""),
-      escapeCSVValue(ind.quarters["TW IV"].isFilled ? `${ind.quarters["TW IV"].capaian.toFixed(2)}%` : ""),
-      escapeCSVValue(ind.quarters["TW IV"].status || "Belum Diisi"),
-      escapeCSVValue(ind.quarters["TW IV"].justifikasi || ""),
-      escapeCSVValue(ind.quarters["TW IV"].linkDokumen || "")
+      escapeCSVValue(ind.satuan)
     ];
+    
+    if (selectedQuarter === "all") {
+      row.push(
+        // Quarters data
+        escapeCSVValue(ind.quarters["TW I"].realisasiLabel || ""),
+        escapeCSVValue(ind.quarters["TW I"].isFilled ? `${ind.quarters["TW I"].capaian.toFixed(2)}%` : ""),
+        escapeCSVValue(ind.quarters["TW I"].status || "Belum Diisi"),
+        escapeCSVValue(ind.quarters["TW I"].justifikasi || ""),
+        escapeCSVValue(ind.quarters["TW I"].linkDokumen || ""),
+
+        escapeCSVValue(ind.quarters["TW II"].realisasiLabel || ""),
+        escapeCSVValue(ind.quarters["TW II"].isFilled ? `${ind.quarters["TW II"].capaian.toFixed(2)}%` : ""),
+        escapeCSVValue(ind.quarters["TW II"].status || "Belum Diisi"),
+        escapeCSVValue(ind.quarters["TW II"].justifikasi || ""),
+        escapeCSVValue(ind.quarters["TW II"].linkDokumen || ""),
+
+        escapeCSVValue(ind.quarters["TW III"].realisasiLabel || ""),
+        escapeCSVValue(ind.quarters["TW III"].isFilled ? `${ind.quarters["TW III"].capaian.toFixed(2)}%` : ""),
+        escapeCSVValue(ind.quarters["TW III"].status || "Belum Diisi"),
+        escapeCSVValue(ind.quarters["TW III"].justifikasi || ""),
+        escapeCSVValue(ind.quarters["TW III"].linkDokumen || ""),
+
+        escapeCSVValue(ind.quarters["TW IV"].realisasiLabel || ""),
+        escapeCSVValue(ind.quarters["TW IV"].isFilled ? `${ind.quarters["TW IV"].capaian.toFixed(2)}%` : ""),
+        escapeCSVValue(ind.quarters["TW IV"].status || "Belum Diisi"),
+        escapeCSVValue(ind.quarters["TW IV"].justifikasi || ""),
+        escapeCSVValue(ind.quarters["TW IV"].linkDokumen || "")
+      );
+    } else {
+      const q = ind.quarters[selectedQuarter];
+      row.push(
+        escapeCSVValue(q.realisasiLabel || ""),
+        escapeCSVValue(q.isFilled ? `${q.capaian.toFixed(2)}%` : ""),
+        escapeCSVValue(q.status || "Belum Diisi"),
+        escapeCSVValue(q.justifikasi || ""),
+        escapeCSVValue(q.linkDokumen || "")
+      );
+    }
     csv += row.join(";") + "\n";
   });
   

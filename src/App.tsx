@@ -123,13 +123,33 @@ export default function App() {
         } else {
           // Parse documents
           const fetched: Indicator[] = [];
+          const batch = writeBatch(db);
+          let hasMigration = false;
+
           querySnapshot.forEach(docSnap => {
             const data = docSnap.data() as Indicator;
             if (!data.tahun) {
               data.tahun = 2026;
             }
+            // Auto migration/fix: update PJ SPI to be under Wadir 2
+            if (data.pj === "SPI" && data.pjWadir !== "Wadir 2") {
+              data.pjWadir = "Wadir 2";
+              const docId = `${data.kode}_${data.tahun}`;
+              const docRef = doc(db, "indicators", docId);
+              batch.update(docRef, { pjWadir: "Wadir 2" });
+              hasMigration = true;
+            }
             fetched.push(data);
           });
+
+          if (hasMigration) {
+            try {
+              await batch.commit();
+              console.log("Auto-migrated SPI indicators to be under Wadir 2 in Firestore.");
+            } catch (e) {
+              console.error("Failed to commit SPI wadir migration to Firestore:", e);
+            }
+          }
 
           // Add any INITIAL_INDICATORS missing in the database for 2026
           const missing = INITIAL_INDICATORS.filter(
@@ -168,7 +188,13 @@ export default function App() {
         if (savedData) {
           try {
             const parsed = JSON.parse(savedData) as Indicator[];
-            const mapped = parsed.map(p => ({ ...p, tahun: p.tahun || 2026 }));
+            const mapped = parsed.map(p => {
+              const cloned = { ...p, tahun: p.tahun || 2026 };
+              if (cloned.pj === "SPI" && cloned.pjWadir !== "Wadir 2") {
+                cloned.pjWadir = "Wadir 2";
+              }
+              return cloned;
+            });
             
             // Ensure 2026 templates are present
             const missing = INITIAL_INDICATORS.filter(
@@ -306,10 +332,24 @@ export default function App() {
   const handleCopyTemplates = async (targetYear: number) => {
     setIsSyncing(true);
     try {
-      // Find all indicators from 2026
-      const templateIndicators = indicators.filter(ind => (ind.tahun || 2026) === 2026);
+      // Find the most recent year before targetYear that actually has indicators
+      let sourceYear = targetYear - 1;
+      let templateIndicators = indicators.filter(ind => (ind.tahun || 2026) === sourceYear);
+      
+      // If none found for targetYear - 1, look for any year before targetYear
       if (templateIndicators.length === 0) {
-        alert("Tidak ada template IKU tahun 2026 yang dapat disalin.");
+        for (let y = targetYear - 1; y >= 2026; y--) {
+          const found = indicators.filter(ind => (ind.tahun || 2026) === y);
+          if (found.length > 0) {
+            sourceYear = y;
+            templateIndicators = found;
+            break;
+          }
+        }
+      }
+
+      if (templateIndicators.length === 0) {
+        alert("Tidak ada template IKU tahun sebelumnya yang dapat disalin.");
         return;
       }
 
