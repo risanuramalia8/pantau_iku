@@ -22,7 +22,8 @@ import {
   Lock,
   Unlock,
   FileText,
-  Presentation
+  Presentation,
+  Upload
 } from "lucide-react";
 
 interface AdminPanelProps {
@@ -33,6 +34,7 @@ interface AdminPanelProps {
   onUpdateIndicator?: (indicator: Indicator) => void;
   onDeleteIndicator?: (kode: string, year: number) => void;
   onCopyTemplates?: (targetYear: number) => void;
+  onImportIndicators?: (importedList: Indicator[]) => void;
   selectedYear: number;
 }
 
@@ -44,12 +46,21 @@ export default function AdminPanel({
   onUpdateIndicator,
   onDeleteIndicator,
   onCopyTemplates,
+  onImportIndicators,
   selectedYear
 }: AdminPanelProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [pjFilter, setPjFilter] = useState("Semua");
   const [wadirFilter, setWadirFilter] = useState("Semua");
   const [activeTab, setActiveTab] = useState<"rekap" | "worksheet" | "summary" | "manage">("rekap");
+
+  // Spreadsheet Import States
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importData, setImportData] = useState<Indicator[]>([]);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importSuccess, setImportSuccess] = useState<string | null>(null);
+  const [importDragActive, setImportDragActive] = useState(false);
 
   // Master Management states
   const [isEditing, setIsEditing] = useState(false);
@@ -283,6 +294,266 @@ export default function AdminPanel({
     document.body.removeChild(link);
   };
 
+  // Handle file import drag events
+  const handleImportDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setImportDragActive(true);
+    } else if (e.type === "dragleave") {
+      setImportDragActive(false);
+    }
+  };
+
+  // Handle dropped file
+  const handleImportDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setImportDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processImportFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  // Handle selected file via input
+  const handleImportFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      processImportFile(e.target.files[0]);
+    }
+  };
+
+  const processImportFile = (file: File) => {
+    setImportFile(file);
+    setImportError(null);
+    setImportSuccess(null);
+    setImportData([]);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        if (!text) {
+          throw new Error("File kosong atau tidak dapat dibaca.");
+        }
+
+        const lines = text.split(/\r?\n/);
+        if (lines.length < 2) {
+          throw new Error("Berkas CSV harus memiliki baris header dan minimal 1 baris data.");
+        }
+
+        const headerLine = lines[0];
+        const delimiter = headerLine.includes(";") ? ";" : ",";
+
+        // Split respecting quotes
+        const splitRow = (rowText: string) => {
+          const result: string[] = [];
+          let current = "";
+          let inQuotes = false;
+          for (let i = 0; i < rowText.length; i++) {
+            const char = rowText[i];
+            if (char === '"') {
+              if (inQuotes && rowText[i + 1] === '"') {
+                current += '"';
+                i++;
+              } else {
+                inQuotes = !inQuotes;
+              }
+            } else if (char === delimiter && !inQuotes) {
+              result.push(current.trim());
+              current = "";
+            } else {
+              current += char;
+            }
+          }
+          result.push(current.trim());
+          return result;
+        };
+
+        const headers = splitRow(headerLine).map(h => h.toUpperCase());
+        const colIndex = (name: string) => headers.findIndex(h => h.includes(name));
+        
+        const idxKode = colIndex("KODE");
+        if (idxKode === -1) {
+          throw new Error("Format berkas tidak sesuai: Kolom 'KODE' tidak ditemukan. Pastikan Anda mengunggah file yang sesuai format Worksheet.");
+        }
+
+        const idxNo = colIndex("NO");
+        const idxIndikator = colIndex("INDIKATOR KINERJA");
+        const idxDefinisi = colIndex("DEFINISI OPERASIONAL");
+        const idxFormula = colIndex("FORMULA PERHITUNGAN");
+        const idxPj = colIndex("PJ");
+        const idxPjWadir = colIndex("PJ WADIR");
+        const idxSatuan = colIndex("SATUAN");
+
+        const idxRealTw1 = colIndex("REALISASI TW I");
+        const idxCapaianTw1 = colIndex("CAPAIAN TW I");
+        const idxStatusTw1 = colIndex("STATUS TW I");
+        const idxJustTw1 = colIndex("JUSTIFIKASI TW I");
+        const idxDocTw1 = colIndex("LINK DOKUMEN TW I");
+
+        const idxRealTw2 = colIndex("REALISASI TW II");
+        const idxCapaianTw2 = colIndex("CAPAIAN TW II");
+        const idxStatusTw2 = colIndex("STATUS TW II");
+        const idxJustTw2 = colIndex("JUSTIFIKASI TW II");
+        const idxDocTw2 = colIndex("LINK DOKUMEN TW II");
+
+        const idxRealTw3 = colIndex("REALISASI TW III");
+        const idxCapaianTw3 = colIndex("CAPAIAN TW III");
+        const idxStatusTw3 = colIndex("STATUS TW III");
+        const idxJustTw3 = colIndex("JUSTIFIKASI TW III");
+        const idxDocTw3 = colIndex("LINK DOKUMEN TW III");
+
+        const idxRealTw4 = colIndex("REALISASI TW IV");
+        const idxCapaianTw4 = colIndex("CAPAIAN TW IV");
+        const idxStatusTw4 = colIndex("STATUS TW IV");
+        const idxJustTw4 = colIndex("JUSTIFIKASI TW IV");
+        const idxDocTw4 = colIndex("LINK DOKUMEN TW IV");
+
+        const parsedList: Indicator[] = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+
+          const cols = splitRow(line);
+          const kode = cols[idxKode];
+          if (!kode) continue;
+
+          const existing = indicators.find(ind => ind.kode.toLowerCase() === kode.toLowerCase());
+          
+          const quartersData = existing 
+            ? JSON.parse(JSON.stringify(existing.quarters)) 
+            : {
+                "TW I": { variables: {}, realisasi: "", realisasiLabel: "", capaian: 0, isFilled: false, status: "Belum Diisi" as const, justifikasi: "", linkDokumen: "" },
+                "TW II": { variables: {}, realisasi: "", realisasiLabel: "", capaian: 0, isFilled: false, status: "Belum Diisi" as const, justifikasi: "", linkDokumen: "" },
+                "TW III": { variables: {}, realisasi: "", realisasiLabel: "", capaian: 0, isFilled: false, status: "Belum Diisi" as const, justifikasi: "", linkDokumen: "" },
+                "TW IV": { variables: {}, realisasi: "", realisasiLabel: "", capaian: 0, isFilled: false, status: "Belum Diisi" as const, justifikasi: "", linkDokumen: "" }
+              };
+
+          const parsePercent = (val: string): number => {
+            if (!val) return 0;
+            const cleaned = val.replace("%", "").replace(",", ".").trim();
+            const num = parseFloat(cleaned);
+            return isNaN(num) ? 0 : num;
+          };
+
+          const getVal = (idx: number, fallback: string) => (idx !== -1 && idx < cols.length) ? cols[idx] : fallback;
+
+          if (idxRealTw1 !== -1) {
+            const realVal = getVal(idxRealTw1, "");
+            const capVal = parsePercent(getVal(idxCapaianTw1, "0"));
+            const statVal = getVal(idxStatusTw1, "Belum Diisi");
+            quartersData["TW I"] = {
+              ...quartersData["TW I"],
+              realisasiLabel: realVal,
+              realisasi: realVal,
+              capaian: capVal,
+              isFilled: realVal !== "",
+              status: (statVal || "Belum Diisi") as any,
+              justifikasi: getVal(idxJustTw1, ""),
+              linkDokumen: getVal(idxDocTw1, "")
+            };
+          }
+
+          if (idxRealTw2 !== -1) {
+            const realVal = getVal(idxRealTw2, "");
+            const capVal = parsePercent(getVal(idxCapaianTw2, "0"));
+            const statVal = getVal(idxStatusTw2, "Belum Diisi");
+            quartersData["TW II"] = {
+              ...quartersData["TW II"],
+              realisasiLabel: realVal,
+              realisasi: realVal,
+              capaian: capVal,
+              isFilled: realVal !== "",
+              status: (statVal || "Belum Diisi") as any,
+              justifikasi: getVal(idxJustTw2, ""),
+              linkDokumen: getVal(idxDocTw2, "")
+            };
+          }
+
+          if (idxRealTw3 !== -1) {
+            const realVal = getVal(idxRealTw3, "");
+            const capVal = parsePercent(getVal(idxCapaianTw3, "0"));
+            const statVal = getVal(idxStatusTw3, "Belum Diisi");
+            quartersData["TW III"] = {
+              ...quartersData["TW III"],
+              realisasiLabel: realVal,
+              realisasi: realVal,
+              capaian: capVal,
+              isFilled: realVal !== "",
+              status: (statVal || "Belum Diisi") as any,
+              justifikasi: getVal(idxJustTw3, ""),
+              linkDokumen: getVal(idxDocTw3, "")
+            };
+          }
+
+          if (idxRealTw4 !== -1) {
+            const realVal = getVal(idxRealTw4, "");
+            const capVal = parsePercent(getVal(idxCapaianTw4, "0"));
+            const statVal = getVal(idxStatusTw4, "Belum Diisi");
+            quartersData["TW IV"] = {
+              ...quartersData["TW IV"],
+              realisasiLabel: realVal,
+              realisasi: realVal,
+              capaian: capVal,
+              isFilled: realVal !== "",
+              status: (statVal || "Belum Diisi") as any,
+              justifikasi: getVal(idxJustTw4, ""),
+              linkDokumen: getVal(idxDocTw4, "")
+            };
+          }
+
+          const item: Indicator = {
+            no: idxNo !== -1 ? parseInt(getVal(idxNo, "1"), 10) || 1 : existing?.no || 1,
+            kode,
+            tahun: existing?.tahun || selectedYear,
+            indikatorKinerja: idxIndikator !== -1 ? getVal(idxIndikator, "") : existing?.indikatorKinerja || "",
+            definisiOperasional: idxDefinisi !== -1 ? getVal(idxDefinisi, "") : existing?.definisiOperasional || "",
+            formulaPerhitungan: idxFormula !== -1 ? getVal(idxFormula, "") : existing?.formulaPerhitungan || "",
+            dataDibutuhkan: existing?.dataDibutuhkan || [],
+            pj: idxPj !== -1 ? getVal(idxPj, "") : existing?.pj || "",
+            pjWadir: idxPjWadir !== -1 ? getVal(idxPjWadir, "") : existing?.pjWadir || "",
+            target2026: existing?.target2026 || 100,
+            target2026Label: existing?.target2026Label || "100%",
+            target: existing?.target || 100,
+            targetLabel: existing?.targetLabel || "100%",
+            satuan: idxSatuan !== -1 ? getVal(idxSatuan, "") : existing?.satuan || "",
+            quarters: quartersData
+          };
+
+          parsedList.push(item);
+        }
+
+        if (parsedList.length === 0) {
+          throw new Error("Tidak ada data IKU yang valid yang dapat diproses.");
+        }
+
+        setImportData(parsedList);
+        setImportSuccess(`Berhasil memuat ${parsedList.length} indikator. Klik 'Konfirmasi Import' di bawah untuk menyimpan ke sistem.`);
+      } catch (err: any) {
+        setImportError(err.message || "Gagal memproses berkas spreadsheet.");
+      }
+    };
+    reader.onerror = () => {
+      setImportError("Gagal membaca berkas.");
+    };
+    reader.readAsText(file);
+  };
+
+  const handleApplyImport = () => {
+    if (!onImportIndicators || importData.length === 0) return;
+    try {
+      onImportIndicators(importData);
+      setIsImportModalOpen(false);
+      setImportFile(null);
+      setImportData([]);
+      setImportSuccess(null);
+      alert(`Sukses mengimport ${importData.length} data indikator! Data telah disinkronkan ke database Firestore.`);
+    } catch (e) {
+      setImportError("Gagal menyimpan data ke Firestore.");
+    }
+  };
+
   // Handle generating Word Report
   const handleDownloadDocxReport = async () => {
     try {
@@ -394,6 +665,16 @@ export default function AdminPanel({
             >
               <Download className="w-4 h-4 text-yellow-450 text-yellow-400" />
               <span>Worksheet (CSV)</span>
+            </button>
+
+            <button
+              id="btn-import-worksheet"
+              onClick={() => setIsImportModalOpen(true)}
+              title="Import data dari spreadsheet (CSV)"
+              className="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white font-extrabold text-xs rounded flex items-center justify-center gap-2 shadow border border-slate-950 transition duration-150 transform hover:scale-[1.01] cursor-pointer h-[38px]"
+            >
+              <Upload className="w-4 h-4 text-emerald-400" />
+              <span>Import Spreadsheet</span>
             </button>
 
             <button
@@ -1334,6 +1615,184 @@ export default function AdminPanel({
 
         </div>
       ) : null}
+
+      {/* Spreadsheet Import Modal */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-slate-100 bg-slate-50/50">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-teal-50 text-teal-800 rounded-lg border border-teal-100">
+                  <Upload className="w-5 h-5 text-teal-700" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-800 uppercase tracking-wide">Import Spreadsheet IKU</h3>
+                  <p className="text-[10.5px] text-slate-500 font-bold">Sinkronisasi data massal via file CSV Microsoft Excel / Google Sheets</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => {
+                  setIsImportModalOpen(false);
+                  setImportFile(null);
+                  setImportData([]);
+                  setImportError(null);
+                  setImportSuccess(null);
+                }}
+                className="p-1.5 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-600 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 overflow-y-auto space-y-5 flex-1">
+              
+              {/* Instructions / Template Banner */}
+              <div className="bg-amber-50/60 border border-amber-200 rounded-xl p-4 text-xs space-y-2">
+                <p className="font-bold text-amber-900 flex items-center gap-1.5">
+                  <HelpCircle className="w-4 h-4 text-amber-700 flex-shrink-0" />
+                  Bagaimana Cara Menggunakan Template Spreadsheet?
+                </p>
+                <ol className="list-decimal pl-4.5 space-y-1 text-slate-700 font-medium">
+                  <li>Unduh file data saat ini dengan menekan tombol <strong className="text-teal-900 font-bold">Worksheet (CSV)</strong> di dashboard utama. File tersebut secara otomatis menjadi template pengisian yang valid.</li>
+                  <li>Buka file tersebut menggunakan <strong className="text-slate-800 font-bold">Microsoft Excel</strong>, <strong className="text-slate-800 font-bold">Google Sheets</strong>, atau WPS Office.</li>
+                  <li>Perbarui isian kolom realisasi, capaian, status, justifikasi, atau dokumen yang ingin diubah. <span className="text-rose-600 font-bold">Jangan mengubah nilai pada kolom KODE</span> karena digunakan sebagai kunci pencocokan data.</li>
+                  <li>Simpan berkas dalam format <strong className="text-emerald-800 font-bold">CSV (.csv)</strong> dan unggah berkas tersebut pada area di bawah ini.</li>
+                  <li>Alternatif: Anda juga bisa mengunduh berkas rujukan <a href="/template-iku.csv" download className="text-blue-700 underline font-black hover:text-blue-900 cursor-pointer">Template Spreadsheet (.CSV)</a> sebagai panduan struktur kolom.</li>
+                </ol>
+              </div>
+
+              {/* Drag and Drop Zone */}
+              <div
+                onDragEnter={handleImportDrag}
+                onDragOver={handleImportDrag}
+                onDragLeave={handleImportDrag}
+                onDrop={handleImportDrop}
+                onClick={() => document.getElementById("csv-file-input")?.click()}
+                className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all ${
+                  importDragActive 
+                    ? "border-teal-700 bg-teal-50/50 cursor-pointer" 
+                    : "border-slate-200 hover:border-teal-600 bg-slate-50 hover:bg-teal-50/10 text-slate-600 cursor-pointer"
+                }`}
+              >
+                <input
+                  id="csv-file-input"
+                  type="file"
+                  onChange={handleImportFileSelect}
+                  className="hidden"
+                  accept=".csv"
+                />
+                <Upload className="w-10 h-10 text-slate-400 mx-auto mb-3" />
+                <p className="text-xs font-black text-slate-800">Tarik & Lepaskan berkas CSV template Anda di sini</p>
+                <p className="text-[10px] text-slate-400 mt-1.5 font-bold">atau klik area ini untuk memilih file komputer Anda</p>
+                {importFile && (
+                  <div className="mt-3.5 inline-block px-3.5 py-1.5 bg-emerald-50 text-emerald-800 font-mono font-bold text-[10.5px] rounded-lg border border-emerald-200">
+                    📂 Berkas terpilih: {importFile.name} ({(importFile.size / 1024).toFixed(1)} KB)
+                  </div>
+                )}
+              </div>
+
+              {/* Status messages */}
+              {importError && (
+                <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-xs font-semibold flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                  <span>{importError}</span>
+                </div>
+              )}
+
+              {importSuccess && (
+                <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-600" />
+                  <span>{importSuccess}</span>
+                </div>
+              )}
+
+              {/* Preview of data to import */}
+              {importData.length > 0 && (
+                <div className="space-y-2">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Preview Baris yang Terbaca ({importData.length}):</span>
+                  <div className="overflow-y-auto border border-slate-150 rounded-xl max-h-48 bg-slate-50">
+                    <table className="w-full text-left text-[11px] border-collapse">
+                      <thead className="bg-slate-200 text-slate-700 sticky top-0 font-bold border-b border-slate-300">
+                        <tr>
+                          <th className="p-2 w-10 text-center">No</th>
+                          <th className="p-2 w-24">Kode</th>
+                          <th className="p-2">Indikator Kinerja Utama</th>
+                          <th className="p-2 text-center">Status TW I</th>
+                          <th className="p-2 text-center">Status TW II</th>
+                          <th className="p-2 text-center">Status TW III</th>
+                          <th className="p-2 text-center">Status TW IV</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200 bg-white">
+                        {importData.map((item, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50 font-medium">
+                            <td className="p-2 text-center text-slate-400 font-mono">{item.no}</td>
+                            <td className="p-2 text-teal-800 font-bold font-mono">{item.kode}</td>
+                            <td className="p-2 text-slate-700 line-clamp-1">{item.indikatorKinerja}</td>
+                            <td className="p-2 text-center">
+                              <span className={`text-[9px] font-bold p-1 rounded ${item.quarters["TW I"].isFilled ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-400"}`}>
+                                {item.quarters["TW I"].isFilled ? "Terisi" : "-"}
+                              </span>
+                            </td>
+                            <td className="p-2 text-center">
+                              <span className={`text-[9px] font-bold p-1 rounded ${item.quarters["TW II"].isFilled ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-400"}`}>
+                                {item.quarters["TW II"].isFilled ? "Terisi" : "-"}
+                              </span>
+                            </td>
+                            <td className="p-2 text-center">
+                              <span className={`text-[9px] font-bold p-1 rounded ${item.quarters["TW III"].isFilled ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-400"}`}>
+                                {item.quarters["TW III"].isFilled ? "Terisi" : "-"}
+                              </span>
+                            </td>
+                            <td className="p-2 text-center">
+                              <span className={`text-[9px] font-bold p-1 rounded ${item.quarters["TW IV"].isFilled ? "bg-emerald-100 text-emerald-800" : "bg-slate-100 text-slate-400"}`}>
+                                {item.quarters["TW IV"].isFilled ? "Terisi" : "-"}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* Footer buttons */}
+            <div className="flex justify-end items-center gap-2 p-5 bg-slate-50 border-t border-slate-100">
+              <button
+                onClick={() => {
+                  setIsImportModalOpen(false);
+                  setImportFile(null);
+                  setImportData([]);
+                  setImportError(null);
+                  setImportSuccess(null);
+                }}
+                className="px-4 py-2 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition cursor-pointer"
+              >
+                Batalkan
+              </button>
+              <button
+                onClick={handleApplyImport}
+                disabled={importData.length === 0}
+                className={`px-4 py-2 font-extrabold text-xs rounded-xl flex items-center gap-1.5 shadow transition cursor-pointer ${
+                  importData.length === 0 
+                    ? "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed" 
+                    : "bg-teal-800 hover:bg-teal-900 text-white border border-teal-950"
+                }`}
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Konfirmasi Import ({importData.length} Indikator)</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
     </div>
   );

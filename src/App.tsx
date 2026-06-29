@@ -310,6 +310,37 @@ export default function App() {
     }
   };
 
+  const handleImportIndicators = async (importedList: Indicator[]) => {
+    setIsSyncing(true);
+    const updatedMap = new Map(importedList.map(ind => [`${ind.kode}_${ind.tahun || selectedYear}`, ind]));
+    
+    const updatedList = indicators.map(ind => {
+      const key = `${ind.kode}_${ind.tahun || 2026}`;
+      if (updatedMap.has(key)) {
+        return updatedMap.get(key)!;
+      }
+      return ind;
+    });
+
+    setIndicators(updatedList);
+    localStorage.setItem("PANTAU_IKU_DATA_2026", JSON.stringify(updatedList));
+
+    try {
+      const batch = writeBatch(db);
+      importedList.forEach(ind => {
+        const docId = `${ind.kode}_${ind.tahun || selectedYear}`;
+        const docRef = doc(db, "indicators", docId);
+        batch.set(docRef, ind, { merge: true });
+      });
+      await batch.commit();
+      console.log("Successfully imported batch of indicators to Firestore");
+    } catch (e) {
+      console.error("Failed to commit batch import to Firestore:", e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   const handleDeleteIndicator = async (kode: string, year: number) => {
     setIsSyncing(true);
     const updatedList = indicators.filter(ind => 
@@ -624,6 +655,7 @@ export default function App() {
                 onUpdateIndicator={handleUpdateIndicator}
                 onDeleteIndicator={handleDeleteIndicator}
                 onCopyTemplates={handleCopyTemplates}
+                onImportIndicators={handleImportIndicators}
                 selectedYear={selectedYear}
               />
             )}
