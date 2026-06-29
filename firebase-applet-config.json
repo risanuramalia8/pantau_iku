@@ -1,10 +1,10 @@
 {
-  "projectId": "valued-sonar-k9z5m",
-  "appId": "1:232267167119:web:4461452311739f1debc7fa",
-  "apiKey": "AIzaSyCpcysk_qmUgnlvsOx4fEmRJn8xnnltpwI",
-  "authDomain": "valued-sonar-k9z5m.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-e6ceb698-4726-41e8-bea3-d541c7efcf8b",
-  "storageBucket": "valued-sonar-k9z5m.firebasestorage.app",
-  "messagingSenderId": "232267167119",
-  "measurementId": ""
+  "projectId": "pantau-iku",
+  "appId": "1:951932096322:web:47b9d60a1f517c645202db",
+  "apiKey": "AIzaSyAbId-VebwBpd6EI2H0HcQ4aH83AjpPMzE",
+  "authDomain": "pantau-iku.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "pantau-iku.firebasestorage.app",
+  "messagingSenderId": "951932096322",
+  "measurementId": "G-Z2B0J5PFCG"
 }
