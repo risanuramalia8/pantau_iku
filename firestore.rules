@@ -1,11 +1,31 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /indicators/{indicatorId} {
-      allow read, write: if true;
+    // Helper function to validate indicator data schema
+    function isValidIndicator() {
+      let data = request.resource.data;
+      return data.kode is string && data.kode.size() > 0
+        && data.indikatorKinerja is string
+        && data.pj is string;
     }
+
+    // Helper function to validate SPI note data schema
+    function isValidSpiNote() {
+      let data = request.resource.data;
+      return data.quarter is string
+        && data.note is string;
+    }
+
+    match /indicators/{indicatorId} {
+      allow read: if true;
+      allow create, update: if isValidIndicator();
+      allow delete: if true;
+    }
+    
     match /spi_notes/{noteId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update: if isValidSpiNote();
+      allow delete: if true;
     }
   }
 }

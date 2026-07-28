@@ -1,6 +1,7 @@
 import React, { useState } from "react";
+import * as XLSX from "xlsx";
 import { Indicator, QuarterName } from "../types";
-import { getStatusTW, convertToIndonesianCSV, getTargetLabel, getTargetValue } from "../utils";
+import { getStatusTW, convertToIndonesianCSV, getTargetLabel, getTargetValue, calculateRealisasi, calculateCapaian } from "../utils";
 import { generateDocxReport, generatePptxReport } from "../utils/reportGenerator";
 import { 
   Download, 
@@ -222,6 +223,16 @@ export default function AdminPanel({
       return;
     }
 
+    if (isAdding) {
+      const isDuplicate = indicators.some(
+        ind => ind.kode.toLowerCase().trim() === formKode.trim().toLowerCase() && (ind.tahun || selectedYear) === Number(formTahun)
+      );
+      if (isDuplicate) {
+        setFormError(`Kode IKU '${formKode.trim()}' sudah terdaftar untuk tahun ${formTahun}. Gunakan kode unik yang berbeda.`);
+        return;
+      }
+    }
+
     const finalIndicator: Indicator = {
       no: Number(formNo),
       kode: formKode.trim(),
@@ -276,22 +287,162 @@ export default function AdminPanel({
 
   // Handle download of Worksheet
   const handleDownloadWorksheet = () => {
-    const csvContent = convertToIndonesianCSV(indicators, downloadScope);
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    
-    let suffix = "Keseluruhan";
-    if (downloadScope === "TW I") suffix = "Triwulan_I";
-    else if (downloadScope === "TW II") suffix = "Triwulan_II";
-    else if (downloadScope === "TW III") suffix = "Triwulan_III";
-    else if (downloadScope === "TW IV") suffix = "Triwulan_IV";
+    try {
+      const wb = XLSX.utils.book_new();
+      const activeQuarters: QuarterName[] = downloadScope === "all"
+        ? ["TW I", "TW II", "TW III", "TW IV"]
+        : [downloadScope];
 
-    link.setAttribute("download", `Worksheet_PANTAU_IKU_Poltekkes_Palembang_${suffix}_${selectedYear}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      // 1. Add Guide Sheet
+      const guideData = [
+        ["PANDUAN SINKRONISASI WORKSHEET IKU POLTEKKES PALEMBANG"],
+        [""],
+        ["1. Berkas ini dikelompokkan ke dalam tab/sheet terpisah berdasarkan Penanggung Jawab (PJ) masing-masing sektor/user."],
+        ["2. Silakan klik tab/sheet unit kerja Anda di bagian bawah layar Excel ini (misal: 'Keuangan', 'Akademik', dll)."],
+        [`3. Isi atau perbarui rincian kolom kinerja Anda pada Quarter/Triwulan terkait (${activeQuarters.join(", ")}):`],
+        ["   a. Kolom-kolom isian variabel rumus formula (misalnya: Pendapatan Unit Usaha, Jumlah lulusan, dll) sesuai indikator Anda."],
+        ["   b. REALISASI: Akan dihitung otomatis oleh sistem berdasarkan variabel rumus, atau diisi manual jika indikator tidak memiliki variabel rumus."],
+        ["   c. CAPAIAN: Persentase capaian target tahunan. Akan dihitung otomatis oleh sistem berdasarkan realisasi dan target."],
+        ["   d. STATUS: Status triwulan ('Belum Diisi' | 'Tercapai' | 'On Track' | 'Perlu Perhatian'). Dapat diisi manual atau dibiarkan kosong agar sistem mengotomatisasi."],
+        ["   e. PERMASALAHAN / JUSTIFIKASI: Alasan/penjelasan jika capaian belum memenuhi target."],
+        ["   f. RENCANA TINDAK LANJUT: Rencana aksi taktis penyelesaian masalah ke depan."],
+        ["   g. LINK URL DOKUMEN DUKUNG: Tautan/link (URL) bukti laporan dukung digital (Google Drive / Spreadsheet)."],
+        ["4. PENTING: JANGAN MENGUBAH nilai pada kolom 'KODE' karena kode tersebut menjadi kunci unik sinkronisasi ke database."],
+        ["5. Simpan perubahan dalam format Excel (.xlsx) lalu unggah kembali berkas ini melalui tombol 'Import Spreadsheet' di Dashboard Admin."],
+        [""],
+        [`* CATATAN: Download scope aktif saat ini adalah: [${downloadScope}]`],
+        ["Politeknik Kesehatan Kemenkes Palembang - Sistem Penjaminan Mutu Internal (SPMI)"]
+      ];
+      const wsGuide = XLSX.utils.aoa_to_sheet(guideData);
+      XLSX.utils.book_append_sheet(wb, wsGuide, "PANDUAN");
+
+      // Helper to generate sheet headers and rows with variables
+      const buildSheetData = (sheetIndicators: Indicator[]) => {
+        // Collect unique variables used by indicators in this sheet
+        const sheetVariables = Array.from(new Set(sheetIndicators.flatMap(ind => ind.dataDibutuhkan || [])));
+
+        const baseHeaders = ["NO", "KODE", "INDIKATOR KINERJA", "DEFINISI OPERASIONAL", "FORMULA PERHITUNGAN", "PJ", "PJ WADIR", "TARGET TAHUNAN", "SATUAN"];
+        const headerOrder = [...baseHeaders];
+
+        activeQuarters.forEach(tw => {
+          // Add variable columns first
+          sheetVariables.forEach(v => {
+            headerOrder.push(`${v} (${tw})`);
+          });
+          // Add status and metrics
+          headerOrder.push(`REALISASI (${tw})`);
+          headerOrder.push(`CAPAIAN (${tw})`);
+          headerOrder.push(`STATUS (${tw})`);
+          headerOrder.push(`PERMASALAHAN / JUSTIFIKASI (${tw})`);
+          headerOrder.push(`RENCANA TINDAK LANJUT (${tw})`);
+          headerOrder.push(`LINK URL DOKUMEN DUKUNG (${tw})`);
+        });
+
+        const rows = sheetIndicators.map(ind => {
+          const row: any = {
+            "NO": ind.no,
+            "KODE": ind.kode,
+            "INDIKATOR KINERJA": ind.indikatorKinerja,
+            "DEFINISI OPERASIONAL": ind.definisiOperasional,
+            "FORMULA PERHITUNGAN": ind.formulaPerhitungan,
+            "PJ": ind.pj,
+            "PJ WADIR": ind.pjWadir,
+            "TARGET TAHUNAN": getTargetLabel(ind),
+            "SATUAN": ind.satuan
+          };
+
+          activeQuarters.forEach(tw => {
+            const q = ind.quarters[tw];
+
+            // Fill variable columns
+            sheetVariables.forEach(v => {
+              if (ind.dataDibutuhkan && ind.dataDibutuhkan.includes(v)) {
+                row[`${v} (${tw})`] = q.variables && q.variables[v] !== undefined ? q.variables[v] : 0;
+              } else {
+                row[`${v} (${tw})`] = ""; // empty for indicators that do not use this variable
+              }
+            });
+
+            row[`REALISASI (${tw})`] = q.realisasiLabel || q.realisasi || "";
+            row[`CAPAIAN (${tw})`] = q.isFilled ? `${q.capaian}%` : "";
+            row[`STATUS (${tw})`] = q.status || "Belum Diisi";
+            row[`PERMASALAHAN / JUSTIFIKASI (${tw})`] = q.justifikasi || "";
+            row[`RENCANA TINDAK LANJUT (${tw})`] = q.rencanaTindakLanjut || "";
+            row[`LINK URL DOKUMEN DUKUNG (${tw})`] = q.linkDokumen || "";
+          });
+
+          return row;
+        });
+
+        return { rows, headerOrder };
+      };
+
+      // 2. Add All Indicators Sheet
+      const { rows: allRows, headerOrder: allHeaders } = buildSheetData(indicators);
+      const wsAll = XLSX.utils.json_to_sheet(allRows, { header: allHeaders });
+      XLSX.utils.book_append_sheet(wb, wsAll, "SEMUA INDIKATOR");
+
+      // 3. Create a separate sheet for each unique PJ (user)
+      const uniquePjNames = Array.from(new Set(indicators.map(ind => ind.pj || "Lainnya"))).sort();
+
+      uniquePjNames.forEach(pjName => {
+        const pjIndicators = indicators.filter(ind => (ind.pj || "Lainnya") === pjName);
+        const { rows: pjRows, headerOrder: pjHeaders } = buildSheetData(pjIndicators);
+
+        // Sheet name cannot exceed 31 chars and cannot contain special chars
+        const cleanSheetName = pjName.replace(/[\/\\\?\*\[\]]/g, "").substring(0, 31) || "Unit";
+        const wsPj = XLSX.utils.json_to_sheet(pjRows, { header: pjHeaders });
+        XLSX.utils.book_append_sheet(wb, wsPj, cleanSheetName);
+      });
+
+      // Write and download
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
+      const s2ab = (s: string) => {
+        const buf = new ArrayBuffer(s.length);
+        const view = new Uint8Array(buf);
+        for (let i = 0; i < s.length; i++) view[i] = s.charCodeAt(i) & 0xFF;
+        return buf;
+      };
+
+      const suffix = downloadScope === "all" ? "Semua_Triwulan" : downloadScope.replace(" ", "_");
+      const blob = new Blob([s2ab(wbout)], { type: "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", `Worksheet_PANTAU_IKU_Poltekkes_Palembang_${suffix}_${selectedYear}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err: any) {
+      alert("Gagal mengunduh berkas Excel: " + err.message);
+    }
+  };
+
+  // Handle download of Rekap Tabel Induk (CSV) for user's reporting/data analysis
+  const handleDownloadCSV = () => {
+    try {
+      const csvContent = convertToIndonesianCSV(indicators, downloadScope);
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+
+      let suffix = "Semua_Triwulan";
+      if (downloadScope === "TW I") suffix = "Triwulan_I";
+      else if (downloadScope === "TW II") suffix = "Triwulan_II";
+      else if (downloadScope === "TW III") suffix = "Triwulan_III";
+      else if (downloadScope === "TW IV") suffix = "Triwulan_IV";
+
+      link.setAttribute(
+        "download",
+        `Rekap_Tabel_Induk_IKU_Poltekkes_Palembang_${suffix}_${selectedYear}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err: any) {
+      alert("Gagal mengunduh rekap CSV: " + err.message);
+    }
   };
 
   // Handle file import drag events
@@ -331,213 +482,185 @@ export default function AdminPanel({
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const text = event.target?.result as string;
-        if (!text) {
-          throw new Error("File kosong atau tidak dapat dibaca.");
-        }
-
-        const lines = text.split(/\r?\n/);
-        if (lines.length < 2) {
-          throw new Error("Berkas CSV harus memiliki baris header dan minimal 1 baris data.");
-        }
-
-        const headerLine = lines[0];
-        const delimiter = headerLine.includes(";") ? ";" : ",";
-
-        // Split respecting quotes
-        const splitRow = (rowText: string) => {
-          const result: string[] = [];
-          let current = "";
-          let inQuotes = false;
-          for (let i = 0; i < rowText.length; i++) {
-            const char = rowText[i];
-            if (char === '"') {
-              if (inQuotes && rowText[i + 1] === '"') {
-                current += '"';
-                i++;
-              } else {
-                inQuotes = !inQuotes;
-              }
-            } else if (char === delimiter && !inQuotes) {
-              result.push(current.trim());
-              current = "";
-            } else {
-              current += char;
-            }
-          }
-          result.push(current.trim());
-          return result;
-        };
-
-        const headers = splitRow(headerLine).map(h => h.toUpperCase());
-        const colIndex = (name: string) => headers.findIndex(h => h.includes(name));
+        const arrayBuffer = event.target?.result as ArrayBuffer;
+        const data = new Uint8Array(arrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
         
-        const idxKode = colIndex("KODE");
-        if (idxKode === -1) {
-          throw new Error("Format berkas tidak sesuai: Kolom 'KODE' tidak ditemukan. Pastikan Anda mengunggah file yang sesuai format Worksheet.");
-        }
-
-        const idxNo = colIndex("NO");
-        const idxIndikator = colIndex("INDIKATOR KINERJA");
-        const idxDefinisi = colIndex("DEFINISI OPERASIONAL");
-        const idxFormula = colIndex("FORMULA PERHITUNGAN");
-        const idxPj = colIndex("PJ");
-        const idxPjWadir = colIndex("PJ WADIR");
-        const idxSatuan = colIndex("SATUAN");
-
-        const idxRealTw1 = colIndex("REALISASI TW I");
-        const idxCapaianTw1 = colIndex("CAPAIAN TW I");
-        const idxStatusTw1 = colIndex("STATUS TW I");
-        const idxJustTw1 = colIndex("JUSTIFIKASI TW I");
-        const idxDocTw1 = colIndex("LINK DOKUMEN TW I");
-
-        const idxRealTw2 = colIndex("REALISASI TW II");
-        const idxCapaianTw2 = colIndex("CAPAIAN TW II");
-        const idxStatusTw2 = colIndex("STATUS TW II");
-        const idxJustTw2 = colIndex("JUSTIFIKASI TW II");
-        const idxDocTw2 = colIndex("LINK DOKUMEN TW II");
-
-        const idxRealTw3 = colIndex("REALISASI TW III");
-        const idxCapaianTw3 = colIndex("CAPAIAN TW III");
-        const idxStatusTw3 = colIndex("STATUS TW III");
-        const idxJustTw3 = colIndex("JUSTIFIKASI TW III");
-        const idxDocTw3 = colIndex("LINK DOKUMEN TW III");
-
-        const idxRealTw4 = colIndex("REALISASI TW IV");
-        const idxCapaianTw4 = colIndex("CAPAIAN TW IV");
-        const idxStatusTw4 = colIndex("STATUS TW IV");
-        const idxJustTw4 = colIndex("JUSTIFIKASI TW IV");
-        const idxDocTw4 = colIndex("LINK DOKUMEN TW IV");
-
-        const parsedList: Indicator[] = [];
-
-        for (let i = 1; i < lines.length; i++) {
-          const line = lines[i].trim();
-          if (!line) continue;
-
-          const cols = splitRow(line);
-          const kode = cols[idxKode];
-          if (!kode) continue;
-
-          const existing = indicators.find(ind => ind.kode.toLowerCase() === kode.toLowerCase());
+        const parsedIndicatorsMap: { [kode: string]: any } = {};
+        
+        workbook.SheetNames.forEach(sheetName => {
+          // Skip the guide sheet
+          if (sheetName.toUpperCase() === "PANDUAN") return;
           
-          const quartersData = existing 
-            ? JSON.parse(JSON.stringify(existing.quarters)) 
-            : {
-                "TW I": { variables: {}, realisasi: "", realisasiLabel: "", capaian: 0, isFilled: false, status: "Belum Diisi" as const, justifikasi: "", linkDokumen: "" },
-                "TW II": { variables: {}, realisasi: "", realisasiLabel: "", capaian: 0, isFilled: false, status: "Belum Diisi" as const, justifikasi: "", linkDokumen: "" },
-                "TW III": { variables: {}, realisasi: "", realisasiLabel: "", capaian: 0, isFilled: false, status: "Belum Diisi" as const, justifikasi: "", linkDokumen: "" },
-                "TW IV": { variables: {}, realisasi: "", realisasiLabel: "", capaian: 0, isFilled: false, status: "Belum Diisi" as const, justifikasi: "", linkDokumen: "" }
+          const worksheet = workbook.Sheets[sheetName];
+          // Convert to JSON
+          const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+          
+          jsonData.forEach(row => {
+            // Read key
+            const kode = row["KODE"] || row["Kode"] || row["kode"];
+            if (!kode) return;
+            const cleanKode = String(kode).trim();
+            
+            // Find existing indicator
+            const existing = indicators.find(ind => ind.kode.toLowerCase().trim() === cleanKode.toLowerCase().trim());
+            if (!existing) return;
+
+            const quartersData = parsedIndicatorsMap[cleanKode]
+              ? { ...parsedIndicatorsMap[cleanKode].quarters }
+              : JSON.parse(JSON.stringify(existing.quarters));
+
+            (["TW I", "TW II", "TW III", "TW IV"] as const).forEach(tw => {
+              // Let's check if this sheet has any columns matching this quarter.
+              const rowKeys = Object.keys(row);
+              const hasQuarterData = rowKeys.some(key => key.includes(`(${tw})`) || key.includes(`${tw}`));
+              
+              if (!hasQuarterData) return; // Skip if no columns for this quarter in this row
+
+              // 1. Parse Variables
+              const importedVariables = { ...quartersData[tw].variables };
+              
+              existing.dataDibutuhkan.forEach(v => {
+                const exactKey = `${v} (${tw})`;
+                const fallbackKey1 = `${v} ${tw}`;
+                const fallbackKey2 = v;
+                
+                const rawVal = row[exactKey] !== undefined ? row[exactKey] : (row[fallbackKey1] !== undefined ? row[fallbackKey1] : row[fallbackKey2]);
+                if (rawVal !== undefined && rawVal !== null && String(rawVal).trim() !== "") {
+                  const parsedVal = parseFloat(String(rawVal).replace(/,/g, '').trim());
+                  importedVariables[v] = isNaN(parsedVal) ? 0 : parsedVal;
+                }
+              });
+
+              // 2. Read manual overrides / fields
+              const getRowVal = (prefix: string) => {
+                const exactKey = `${prefix} (${tw})`;
+                const fallbackKey1 = `${prefix} ${tw}`;
+                const fallbackKey2 = `${prefix} ${tw.replace(" ", "")}`;
+                return row[exactKey] !== undefined ? row[exactKey] : (row[fallbackKey1] !== undefined ? row[fallbackKey1] : row[fallbackKey2]);
               };
 
-          const parsePercent = (val: string): number => {
-            if (!val) return 0;
-            const cleaned = val.replace("%", "").replace(",", ".").trim();
-            const num = parseFloat(cleaned);
-            return isNaN(num) ? 0 : num;
-          };
+              const realValRaw = getRowVal("REALISASI");
+              const capValRaw = getRowVal("CAPAIAN");
+              const statValRaw = getRowVal("STATUS");
+              const justValRaw = getRowVal("PERMASALAHAN / JUSTIFIKASI") !== undefined 
+                ? getRowVal("PERMASALAHAN / JUSTIFIKASI") 
+                : (getRowVal("JUSTIFIKASI") !== undefined ? getRowVal("JUSTIFIKASI") : getRowVal("Permasalahan"));
+              const rtlValRaw = getRowVal("RENCANA TINDAK LANJUT");
+              const docValRaw = getRowVal("LINK URL DOKUMEN DUKUNG") !== undefined 
+                ? getRowVal("LINK URL DOKUMEN DUKUNG") 
+                : (getRowVal("LINK DOKUMEN") !== undefined ? getRowVal("LINK DOKUMEN") : getRowVal("Link URL Folder Dokumen Dukung"));
 
-          const getVal = (idx: number, fallback: string) => (idx !== -1 && idx < cols.length) ? cols[idx] : fallback;
+              // Determine Realisasi & Capaian
+              let finalRealisasiLabel = "";
+              let finalRealisasi: string | number = "";
+              let finalCapaian = 0;
+              let isFilled = false;
 
-          if (idxRealTw1 !== -1) {
-            const realVal = getVal(idxRealTw1, "");
-            const capVal = parsePercent(getVal(idxCapaianTw1, "0"));
-            const statVal = getVal(idxStatusTw1, "Belum Diisi");
-            quartersData["TW I"] = {
-              ...quartersData["TW I"],
-              realisasiLabel: realVal,
-              realisasi: realVal,
-              capaian: capVal,
-              isFilled: realVal !== "",
-              status: (statVal || "Belum Diisi") as any,
-              justifikasi: getVal(idxJustTw1, ""),
-              linkDokumen: getVal(idxDocTw1, "")
+              if (existing.dataDibutuhkan && existing.dataDibutuhkan.length > 0) {
+                // We have variables! Let's auto-calculate using calculateRealisasi and calculateCapaian
+                const { realisasi: calcReal, label: calcRealLabel } = calculateRealisasi(existing.kode, importedVariables);
+                finalRealisasi = calcReal;
+                finalRealisasiLabel = calcRealLabel;
+                finalCapaian = calculateCapaian(existing.kode, calcReal, existing.target2026);
+                
+                // Check if variables were actually filled (non-zero) or if they were updated in Excel
+                isFilled = Object.values(importedVariables).some(val => val !== 0);
+              } else {
+                // No variables! Use manual inputs from Excel
+                if (realValRaw !== undefined && realValRaw !== null && String(realValRaw).trim() !== "") {
+                  finalRealisasi = String(realValRaw).trim();
+                  finalRealisasiLabel = finalRealisasi;
+                  isFilled = true;
+                  
+                  if (capValRaw !== undefined && capValRaw !== null && String(capValRaw).trim() !== "") {
+                    finalCapaian = parseFloat(String(capValRaw).replace("%", "").replace(",", ".").trim()) || 0;
+                  } else {
+                    // Parse finalRealisasi as a number if possible to calculate capaian
+                    const numericReal = parseFloat(String(finalRealisasi).replace(/[^0-9.-]/g, '')) || 0;
+                    finalCapaian = calculateCapaian(existing.kode, numericReal, existing.target2026);
+                  }
+                } else {
+                  // Fallback to existing
+                  finalRealisasi = quartersData[tw].realisasi;
+                  finalRealisasiLabel = quartersData[tw].realisasiLabel;
+                  finalCapaian = quartersData[tw].capaian;
+                  isFilled = quartersData[tw].isFilled;
+                }
+              }
+
+              // Determine status (use auto-calculated if not specified or "Belum Diisi" in Excel, or if calculated status is more precise)
+              let finalStatus = "Belum Diisi" as any;
+              if (isFilled) {
+                const calculatedStatus = getStatusTW(tw, finalCapaian, true);
+                if (statValRaw !== undefined && statValRaw !== null && String(statValRaw).trim() !== "" && String(statValRaw).trim() !== "Belum Diisi") {
+                  finalStatus = String(statValRaw).trim() as any;
+                } else {
+                  finalStatus = calculatedStatus;
+                }
+              }
+
+              quartersData[tw] = {
+                ...quartersData[tw],
+                variables: importedVariables,
+                realisasi: finalRealisasi,
+                realisasiLabel: finalRealisasiLabel || String(finalRealisasi),
+                capaian: finalCapaian,
+                isFilled,
+                status: finalStatus,
+                justifikasi: justValRaw !== undefined && justValRaw !== null ? String(justValRaw).trim() : (quartersData[tw].justifikasi || ""),
+                rencanaTindakLanjut: rtlValRaw !== undefined && rtlValRaw !== null ? String(rtlValRaw).trim() : (quartersData[tw].rencanaTindakLanjut || ""),
+                linkDokumen: docValRaw !== undefined && docValRaw !== null ? String(docValRaw).trim() : (quartersData[tw].linkDokumen || "")
+              };
+            });
+
+            parsedIndicatorsMap[cleanKode] = {
+              ...existing,
+              quarters: quartersData
+            };
+          });
+        });
+
+        // Merge with existing indicators
+        const mergedList = indicators.map(existing => {
+          const imported = parsedIndicatorsMap[existing.kode];
+          if (imported) {
+            const updatedQuarters = { ...existing.quarters };
+            (["TW I", "TW II", "TW III", "TW IV"] as const).forEach(tw => {
+              if (imported.quarters[tw]) {
+                updatedQuarters[tw] = {
+                  ...updatedQuarters[tw],
+                  ...imported.quarters[tw]
+                };
+              }
+            });
+            
+            return {
+              ...existing,
+              quarters: updatedQuarters,
+              target2026: existing.target2026 || existing.target || 100,
+              target2026Label: existing.target2026Label || existing.targetLabel || "100%",
+              target: existing.target || 100,
+              targetLabel: existing.targetLabel || "100%",
             };
           }
+          return existing;
+        });
 
-          if (idxRealTw2 !== -1) {
-            const realVal = getVal(idxRealTw2, "");
-            const capVal = parsePercent(getVal(idxCapaianTw2, "0"));
-            const statVal = getVal(idxStatusTw2, "Belum Diisi");
-            quartersData["TW II"] = {
-              ...quartersData["TW II"],
-              realisasiLabel: realVal,
-              realisasi: realVal,
-              capaian: capVal,
-              isFilled: realVal !== "",
-              status: (statVal || "Belum Diisi") as any,
-              justifikasi: getVal(idxJustTw2, ""),
-              linkDokumen: getVal(idxDocTw2, "")
-            };
-          }
-
-          if (idxRealTw3 !== -1) {
-            const realVal = getVal(idxRealTw3, "");
-            const capVal = parsePercent(getVal(idxCapaianTw3, "0"));
-            const statVal = getVal(idxStatusTw3, "Belum Diisi");
-            quartersData["TW III"] = {
-              ...quartersData["TW III"],
-              realisasiLabel: realVal,
-              realisasi: realVal,
-              capaian: capVal,
-              isFilled: realVal !== "",
-              status: (statVal || "Belum Diisi") as any,
-              justifikasi: getVal(idxJustTw3, ""),
-              linkDokumen: getVal(idxDocTw3, "")
-            };
-          }
-
-          if (idxRealTw4 !== -1) {
-            const realVal = getVal(idxRealTw4, "");
-            const capVal = parsePercent(getVal(idxCapaianTw4, "0"));
-            const statVal = getVal(idxStatusTw4, "Belum Diisi");
-            quartersData["TW IV"] = {
-              ...quartersData["TW IV"],
-              realisasiLabel: realVal,
-              realisasi: realVal,
-              capaian: capVal,
-              isFilled: realVal !== "",
-              status: (statVal || "Belum Diisi") as any,
-              justifikasi: getVal(idxJustTw4, ""),
-              linkDokumen: getVal(idxDocTw4, "")
-            };
-          }
-
-          const item: Indicator = {
-            no: idxNo !== -1 ? parseInt(getVal(idxNo, "1"), 10) || 1 : existing?.no || 1,
-            kode,
-            tahun: existing?.tahun || selectedYear,
-            indikatorKinerja: idxIndikator !== -1 ? getVal(idxIndikator, "") : existing?.indikatorKinerja || "",
-            definisiOperasional: idxDefinisi !== -1 ? getVal(idxDefinisi, "") : existing?.definisiOperasional || "",
-            formulaPerhitungan: idxFormula !== -1 ? getVal(idxFormula, "") : existing?.formulaPerhitungan || "",
-            dataDibutuhkan: existing?.dataDibutuhkan || [],
-            pj: idxPj !== -1 ? getVal(idxPj, "") : existing?.pj || "",
-            pjWadir: idxPjWadir !== -1 ? getVal(idxPjWadir, "") : existing?.pjWadir || "",
-            target2026: existing?.target2026 || 100,
-            target2026Label: existing?.target2026Label || "100%",
-            target: existing?.target || 100,
-            targetLabel: existing?.targetLabel || "100%",
-            satuan: idxSatuan !== -1 ? getVal(idxSatuan, "") : existing?.satuan || "",
-            quarters: quartersData
-          };
-
-          parsedList.push(item);
+        if (Object.keys(parsedIndicatorsMap).length === 0) {
+          throw new Error("Tidak ada data IKU yang valid yang dapat diproses dari berkas.");
         }
 
-        if (parsedList.length === 0) {
-          throw new Error("Tidak ada data IKU yang valid yang dapat diproses.");
-        }
-
-        setImportData(parsedList);
-        setImportSuccess(`Berhasil memuat ${parsedList.length} indikator. Klik 'Konfirmasi Import' di bawah untuk menyimpan ke sistem.`);
+        setImportData(mergedList);
+        setImportSuccess(`Berhasil memuat ${Object.keys(parsedIndicatorsMap).length} indikator dari lembar kerja Excel / CSV. Klik 'Konfirmasi Import' untuk menyimpan.`);
       } catch (err: any) {
-        setImportError(err.message || "Gagal memproses berkas spreadsheet.");
+        setImportError(err.message || "Gagal memproses berkas Excel.");
       }
     };
     reader.onerror = () => {
       setImportError("Gagal membaca berkas.");
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   };
 
   const handleApplyImport = () => {
@@ -658,19 +781,29 @@ export default function AdminPanel({
 
           <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
             <button
-              id="btn-download-worksheet"
-              onClick={handleDownloadWorksheet}
-              title="Unduh data bentuk CSV/Excel"
+              id="btn-download-rekap-csv"
+              onClick={handleDownloadCSV}
+              title="Unduh data rekapitulasi tabel induk IKU dalam format CSV untuk pelaporan & olah data"
               className="px-4 py-2 bg-teal-800 hover:bg-teal-900 text-white font-extrabold text-xs rounded flex items-center justify-center gap-2 shadow border border-teal-950 transition duration-150 transform hover:scale-[1.01] cursor-pointer h-[38px]"
             >
-              <Download className="w-4 h-4 text-yellow-450 text-yellow-400" />
-              <span>Worksheet (CSV)</span>
+              <Download className="w-4 h-4 text-teal-100" />
+              <span>Rekap Tabel Induk (CSV)</span>
+            </button>
+
+            <button
+              id="btn-download-worksheet"
+              onClick={handleDownloadWorksheet}
+              title="Unduh berkas template input Excel (.xlsx) Multi-Sheet per Penanggung Jawab untuk diisi & diimport kembali"
+              className="px-4 py-2 bg-emerald-800 hover:bg-emerald-900 text-white font-extrabold text-xs rounded flex items-center justify-center gap-2 shadow border border-emerald-950 transition duration-150 transform hover:scale-[1.01] cursor-pointer h-[38px]"
+            >
+              <Table className="w-4 h-4 text-emerald-100" />
+              <span>Template Input (Excel)</span>
             </button>
 
             <button
               id="btn-import-worksheet"
               onClick={() => setIsImportModalOpen(true)}
-              title="Import data dari spreadsheet (CSV)"
+              title="Import data dari spreadsheet (Excel / CSV)"
               className="px-4 py-2 bg-slate-700 hover:bg-slate-800 text-white font-extrabold text-xs rounded flex items-center justify-center gap-2 shadow border border-slate-950 transition duration-150 transform hover:scale-[1.01] cursor-pointer h-[38px]"
             >
               <Upload className="w-4 h-4 text-emerald-400" />
@@ -1656,11 +1789,11 @@ export default function AdminPanel({
                   Bagaimana Cara Menggunakan Template Spreadsheet?
                 </p>
                 <ol className="list-decimal pl-4.5 space-y-1 text-slate-700 font-medium">
-                  <li>Unduh file data saat ini dengan menekan tombol <strong className="text-teal-900 font-bold">Worksheet (CSV)</strong> di dashboard utama. File tersebut secara otomatis menjadi template pengisian yang valid.</li>
+                  <li>Unduh berkas template input saat ini dengan menekan tombol <strong className="text-emerald-900 font-bold">Template Input (Excel)</strong> di dashboard utama. File tersebut secara otomatis membagi indikator per user dalam bentuk lembar kerja (multi-sheet) yang terpisah beserta kolom variabel rumus penunjangnya.</li>
                   <li>Buka file tersebut menggunakan <strong className="text-slate-800 font-bold">Microsoft Excel</strong>, <strong className="text-slate-800 font-bold">Google Sheets</strong>, atau WPS Office.</li>
-                  <li>Perbarui isian kolom realisasi, capaian, status, justifikasi, atau dokumen yang ingin diubah. <span className="text-rose-600 font-bold">Jangan mengubah nilai pada kolom KODE</span> karena digunakan sebagai kunci pencocokan data.</li>
-                  <li>Simpan berkas dalam format <strong className="text-emerald-800 font-bold">CSV (.csv)</strong> dan unggah berkas tersebut pada area di bawah ini.</li>
-                  <li>Alternatif: Anda juga bisa mengunduh berkas rujukan <a href="/template-iku.csv" download className="text-blue-700 underline font-black hover:text-blue-900 cursor-pointer">Template Spreadsheet (.CSV)</a> sebagai panduan struktur kolom.</li>
+                  <li>Buka sheet yang sesuai dengan unit PJ Anda (misal sheet: "Keuangan", "Akademik", dll) dan lengkapi rincian data realisasi, capaian, status, justifikasi, serta rencana tindak lanjut per triwulan.</li>
+                  <li><span className="text-rose-600 font-bold">Jangan mengubah nilai pada kolom KODE</span> karena digunakan sebagai kunci pencocokan data ke sistem.</li>
+                  <li>Simpan kembali dalam format <strong className="text-emerald-800 font-bold">Excel (.xlsx)</strong> atau <strong className="text-emerald-800 font-bold">CSV (.csv)</strong> dan unggah berkas tersebut pada area di bawah ini.</li>
                 </ol>
               </div>
 
@@ -1682,10 +1815,10 @@ export default function AdminPanel({
                   type="file"
                   onChange={handleImportFileSelect}
                   className="hidden"
-                  accept=".csv"
+                  accept=".csv,.xlsx,.xls"
                 />
                 <Upload className="w-10 h-10 text-slate-400 mx-auto mb-3" />
-                <p className="text-xs font-black text-slate-800">Tarik & Lepaskan berkas CSV template Anda di sini</p>
+                <p className="text-xs font-black text-slate-800">Tarik & Lepaskan berkas Excel (.xlsx) atau CSV template Anda di sini</p>
                 <p className="text-[10px] text-slate-400 mt-1.5 font-bold">atau klik area ini untuk memilih file komputer Anda</p>
                 {importFile && (
                   <div className="mt-3.5 inline-block px-3.5 py-1.5 bg-emerald-50 text-emerald-800 font-mono font-bold text-[10.5px] rounded-lg border border-emerald-200">

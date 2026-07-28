@@ -107,9 +107,10 @@ export default function HomeDashboard({
   const thresholdMap = { "TW I": 25, "TW II": 50, "TW III": 75, "TW IV": 100 };
   const targetThreshold = thresholdMap[selectedQuarter];
 
-  // Calculate overall average achievement among filled indicators
-  const totalCapaianFilled = evaluatedData.reduce((acc, curr) => acc + curr.liveCapaian, 0);
-  const averageCapaian = totalCount > 0 ? Number((totalCapaianFilled / totalCount).toFixed(2)) : 0;
+  // Calculate overall average achievement among filled indicators (LOGIC-004)
+  const filledIndicators = evaluatedData.filter(i => i.isFilled);
+  const totalCapaianFilled = filledIndicators.reduce((acc, curr) => acc + curr.liveCapaian, 0);
+  const averageCapaian = filledIndicators.length > 0 ? Number((totalCapaianFilled / filledIndicators.length).toFixed(2)) : 0;
 
   // List indicators needing leadership attention
   const attentionIndicators = evaluatedData.filter(i => i.liveStatus === "Perlu Perhatian");
@@ -150,7 +151,7 @@ export default function HomeDashboard({
             <span className="text-xs text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded font-bold">100% Target</span>
           </div>
           <div className="text-[10px] text-slate-500 mt-2 font-medium">
-            {Number((tercapaiCount / totalCount * 100).toFixed(0))}% dari total target 2026
+            {totalCount > 0 ? Number((tercapaiCount / totalCount * 100).toFixed(0)) : 0}% dari total target {selectedYear}
           </div>
         </div>
 
@@ -164,7 +165,7 @@ export default function HomeDashboard({
           </div>
           <div className="mt-3 flex items-baseline gap-2">
             <span className="text-3xl font-extrabold text-yellow-600 font-mono">{onTrackCount}</span>
-            <span className="text-xs text-yellow-800 bg-yellow-105-disabled bg-yellow-105 bg-yellow-100 px-1.5 py-0.5 rounded font-bold">≥ {targetThreshold}% Capaian</span>
+            <span className="text-xs text-yellow-800 bg-yellow-100 px-1.5 py-0.5 rounded font-bold">≥ {targetThreshold}% Capaian</span>
           </div>
           <div className="text-[10px] text-slate-500 mt-2 font-medium">
             Sesuai milestone {selectedQuarter}

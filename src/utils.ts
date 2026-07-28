@@ -292,11 +292,38 @@ export function convertToIndonesianCSV(
   return csv;
 }
 
+export function sanitizeUrl(url: string | undefined): string {
+  if (!url) return "";
+  const trimmed = url.trim();
+  if (
+    trimmed.toLowerCase().startsWith("javascript:") ||
+    trimmed.toLowerCase().startsWith("data:text/html") ||
+    trimmed.toLowerCase().startsWith("vbscript:")
+  ) {
+    return "#";
+  }
+  if (
+    !trimmed.startsWith("http://") &&
+    !trimmed.startsWith("https://") &&
+    !trimmed.startsWith("blob:") &&
+    !trimmed.startsWith("data:")
+  ) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
+}
+
 function escapeCSVValue(val: any): string {
   if (val === null || val === undefined) return "";
   let str = String(val);
   // replace newlines and carriage returns with spaces
   str = str.replace(/[\r\n]+/g, " ");
+  
+  // DATA-002: Neutralize potential CSV/Excel formula injection (=, +, -, @, \t, \r)
+  if (/^[=+\-@\t\r]/.test(str)) {
+    str = "'" + str;
+  }
+
   // replace semicolons with comma or keep quotes
   if (str.includes(";") || str.includes("\"") || str.includes(",")) {
     str = `"${str.replace(/"/g, '""')}"`;

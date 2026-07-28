@@ -95,7 +95,8 @@ export async function generateDocxReport(
   quarterScope: "all" | QuarterName,
   titleText: string,
   subtitleText: string,
-  authorText: string
+  authorText: string,
+  reportYear: number = indicators[0]?.tahun || 2026
 ): Promise<Blob> {
   const stats = calculateStats(indicators, quarterScope);
   const isAllQuarters = quarterScope === "all";
@@ -196,7 +197,7 @@ export async function generateDocxReport(
                 spacing: { before: 180, after: 80 },
                 children: [
                   new TextRun({
-                    text: `Periode: ${isAllQuarters ? "Keseluruhan (TW I - TW IV)" : `Triwulan ${quarterScope.replace("TW ", "")}`} Tahun 2026`,
+                    text: `Periode: ${isAllQuarters ? "Keseluruhan (TW I - TW IV)" : `Triwulan ${quarterScope.replace("TW ", "")}`} Tahun ${reportYear}`,
                     bold: true,
                     size: 20,
                     color: "0F172A",
@@ -253,7 +254,7 @@ export async function generateDocxReport(
     spacing: { before: 1600 },
     children: [
       new TextRun({
-        text: "SISTEM PEMANTAUAN & EVALUASI KINERJA UTAMA (PANTAU-IKU)\nPOLTEKKES PALEMBANG - 2026",
+        text: `SISTEM PEMANTAUAN & EVALUASI KINERJA UTAMA (PANTAU-IKU)\nPOLTEKKES PALEMBANG - ${reportYear}`,
         bold: true,
         size: 12,
         color: "94A3B8",
@@ -786,7 +787,8 @@ export async function generatePptxReport(
   quarterScope: "all" | QuarterName,
   titleText: string,
   subtitleText: string,
-  authorText: string
+  authorText: string,
+  reportYear: number = indicators[0]?.tahun || 2026
 ): Promise<void> {
   const stats = calculateStats(indicators, quarterScope);
   const isAllQuarters = quarterScope === "all";
@@ -836,7 +838,7 @@ export async function generatePptxReport(
   slide1.addShape('rect', { x: 1.0, y: 3.8, w: 0.08, h: 1.6, fill: { color: TEAL } });
   
   slide1.addText(
-    `Periode Laporan : ${isAllQuarters ? "Keseluruhan (TW I - TW IV)" : `Triwulan ${quarterScope.replace("TW ", "")}`} 2026\n` +
+    `Periode Laporan : ${isAllQuarters ? "Keseluruhan (TW I - TW IV)" : `Triwulan ${quarterScope.replace("TW ", "")}`} ${reportYear}\n` +
     `Unit Pembina    : ${authorText}\n` +
     `Sistem Pantau   : PANTAU-IKU Poltekkes Palembang\n` +
     `Tanggal Unduh   : ${new Date().toLocaleDateString("id-ID", { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`,

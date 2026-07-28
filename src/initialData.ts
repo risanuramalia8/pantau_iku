@@ -471,8 +471,8 @@ export const INITIAL_INDICATORS: Indicator[] = [
     no: 15,
     kode: "IKM 33.1.1",
     indikatorKinerja: "Nilai SAKIP Satuan Kerja",
-    definisiOperasional: "Nilai Sistem Akuntabilitas Kinerja Instansi Pemerintah (SAKIP) Satuan Kerja.",
-    formulaPerhitungan: "Nilai SAKIP Satuan Kerja",
+    definisiOperasional: "Hasil Penilaian T-1 (Tahun sebelumnya) dan hasil penilaian tahun berjalan dari evaluasi terhadap implementasi SAKIP yang terdiri dari komponen Perencanaan Kinerja, Pengukuran Kinerja, Pelaporan Kinerja dan evaluasi Akuntabilitas Kinerja Internal. Evaluasi implementasi SAKIP dilaksanakan oleh Tim Penilai, yaitu: a. Untuk level Unit Utama (Eselon I), penilaian dilaksanakan oleh APIP Kementerian Kesehatan; b. Untuk level Unit Kerja dan Satuan Kerja penilaian dilaksanakan oleh Tim SKI/SPI Unit Utama/Satker dan dilakukan penjaminan mutu oleh Tim APIP.",
+    formulaPerhitungan: "Nilai SAKIP T-1 (Tahun sebelumnya) yang diperoleh dari hasil penjumlahan perhitungan komponen Perencanaan Kinerja, Pengukuran Kinerja, Pelaporan Kinerja dan Evaluasi Kinerja (Berdasarkan Permenpan RB Nomor 88 Tahun 2021 Tentang Evaluasi Akuntabilitas Kinerja Instansi Pemerintah)",
     dataDibutuhkan: [
       "Nilai SAKIP Satuan Kerja"
     ],
@@ -503,8 +503,8 @@ export const INITIAL_INDICATORS: Indicator[] = [
     no: 16,
     kode: "IKM 33.2.1",
     indikatorKinerja: "Nilai Kinerja Anggaran Satuan Kerja",
-    definisiOperasional: "Evaluasi kinerja anggaran (EKA) atau Nilai Kinerja Anggaran Kemenkeu.",
-    formulaPerhitungan: "Nilai Kinerja Anggaran Satuan Kerja",
+    definisiOperasional: "Besarnya Nilai Kinerja Anggaran diperoleh melalui perhitungan kinerja menggunakan aplikasi eMonev Kementerian Keuangan, yang terdiri dari: 1. Kinerja atas perencanaan anggaran diukur berdasarkan efektivitas dan efisiensi penggunaan anggaran. Efektivitas diukur berdasarkan capaian IKP agregasi capaian IKP dan agregasi capaian RO, sedangkan efisiensi diukur berdasarkan Agregasi capaian RO dengan mengacu pada ketentuan terkait Standar Biaya yang meliputi: penggunaan SBK; dan/atau efisiensi SBK. 2. Nilai Kinerja Pelaksanaan Anggaran, diukur menggunakan instrumen Indikator Kinerja Pelaksanaan Anggaran (IKPA), terdiri atas revisi DIPA, deviasi halaman III DIPA, penyerapan anggaran, belanja kontraktual, penyelesaian tagihan, pengelolaan Uang Persediaan dan Tambahan Uang Persediaan (UP dan TUP), dispensasi Surat Perintah Membayar (SPM); dan capaian output. (*Nilai IKPA Satker BLU tidak dilakukan agregasi ke level Kementerian)",
+    formulaPerhitungan: "50% Nilai Kinerja atas Perencanaan Penganggaran (yang terdiri 75% efektivitas + 25% efisiensi) ditambah 50% Nilai Indikator Pelaksanaan Anggaran (sesuai dengan perhitungan IKPA)",
     dataDibutuhkan: [
       "Nilai Kinerja Anggaran Satuan Kerja"
     ],
@@ -639,8 +639,8 @@ export const INITIAL_INDICATORS: Indicator[] = [
     no: 20,
     kode: "IKM 33.3.1",
     indikatorKinerja: "Indeks Kualitas SDM Satuan Kerja",
-    definisiOperasional: "Belum ada DO-nya",
-    formulaPerhitungan: "Indeks Kualitas SDM Satuan Kerja",
+    definisiOperasional: "Ukuran yang menggambarkan kualitas ASN Kemenkes di satuan kerja berdasarkan kesesuaian kualifikasi kompetensi, kinerja, dan kedisiplinan pegawai ASN dalam melaksanakan tugas jabatan. Dalam hal pelaksanaan pengukuran, mengacu pada peraturan yang diterbitkan oleh leading institution yang disesuaikan.",
+    formulaPerhitungan: "Hasil penjumlahan dari nilai Penerapan dimensi profesionalitas ASN sesuai Peraturan Menteri PANRB Nomor 38 Tahun 2018 dan Peraturan BKN Nomor 8 Tahun 2019",
     dataDibutuhkan: [
       "Indeks Kualitas SDM Satuan Kerja"
     ],
@@ -671,8 +671,8 @@ export const INITIAL_INDICATORS: Indicator[] = [
     no: 21,
     kode: "IKM 33.4.1",
     indikatorKinerja: "Nilai Maturitas Manajemen Risiko Satuan Kerja",
-    definisiOperasional: "Belum ada DO-nya",
-    formulaPerhitungan: "Nilai Maturitas Manajemen Risiko Satuan Kerja",
+    definisiOperasional: "Nilai maturitas manajemen risiko satuan kerja dari hasil penilaian APIP Kemenkes yang mengacu pada Pedoman Penilaian Maturitas Penyelenggaraan Sistem Pengendalian Intern Pemerintah Terintegrasi di Lingkungan Kemenkes.",
+    formulaPerhitungan: "Hasil penilaian maturitas manajemen risiko Satuan Kerja di tahun berjalan dengan kategori yaitu: Naïve: ≤ 1, Aware: 1,01 – 2,00, Define: 2,01 – 3,00, Manage: 3,01 – 4,00, Enable: 4,01 – 5,00",
     dataDibutuhkan: [
       "Nilai Maturitas Manajemen Risiko Satuan Kerja"
     ],
@@ -703,8 +703,8 @@ export const INITIAL_INDICATORS: Indicator[] = [
     no: 22,
     kode: "IKD 33.2.1",
     indikatorKinerja: "Persentase Realisasi Anggaran Satuan Kerja",
-    definisiOperasional: "Belum ada DO-nya",
-    formulaPerhitungan: "Persentase Realisasi Anggaran Satuan Kerja",
+    definisiOperasional: "Jumlah realisasi anggaran terhadap pelaksanaan kegiatan oleh Satuan Kerja yang telah dipertanggungjawabkan hingga tanggal pelaporan berdasarkan Aplikasi SAKTI Kemenkeu.",
+    formulaPerhitungan: "Hasil bagi antara total realisasi anggaran oleh Unit Kerja dengan total pagu anggaran efektif yang dikalikan 100%",
     dataDibutuhkan: [
       "Persentase Realisasi Anggaran Satuan Kerja"
     ],
@@ -735,8 +735,8 @@ export const INITIAL_INDICATORS: Indicator[] = [
     no: 23,
     kode: "IKD 33.1.2",
     indikatorKinerja: "Persentase Mutasi Pegawai antar Satuan Kerja",
-    definisiOperasional: "Belum ada DO-nya",
-    formulaPerhitungan: "Persentase Mutasi Pegawai antar Satuan Kerja",
+    definisiOperasional: "Persentase pegawai yang dimutasi dari satuan kerja ke satuan kerja lain dan/atau dari unit ke unit lain di dalam satuan kerja tersebut dalam 1 tahun sebagai bagian dari kebijakan penataan dan redistribusi SDM untuk memenuhi kebutuhan organisasi.",
+    formulaPerhitungan: "Jumlah pegawai yang dimutasi antar satuan kerja dan/atau antar unit di satuan kerja tersebut dibagi jumlah total pegawai dikali 100%",
     dataDibutuhkan: [
       "Persentase Mutasi Pegawai antar Satuan Kerja"
     ],

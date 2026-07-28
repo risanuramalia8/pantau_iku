@@ -139,6 +139,28 @@ export default function App() {
               batch.update(docRef, { pjWadir: "Wadir 2" });
               hasMigration = true;
             }
+
+            // Auto update DO & Formula if outdated or placeholder
+            const officialMatch = INITIAL_INDICATORS.find(i => i.kode === data.kode);
+            if (officialMatch) {
+              if (
+                !data.definisiOperasional ||
+                data.definisiOperasional.includes("Belum ada DO") ||
+                data.definisiOperasional !== officialMatch.definisiOperasional ||
+                data.formulaPerhitungan !== officialMatch.formulaPerhitungan
+              ) {
+                data.definisiOperasional = officialMatch.definisiOperasional;
+                data.formulaPerhitungan = officialMatch.formulaPerhitungan;
+                const docId = `${data.kode}_${data.tahun}`;
+                const docRef = doc(db, "indicators", docId);
+                batch.update(docRef, {
+                  definisiOperasional: officialMatch.definisiOperasional,
+                  formulaPerhitungan: officialMatch.formulaPerhitungan
+                });
+                hasMigration = true;
+              }
+            }
+
             fetched.push(data);
           });
 

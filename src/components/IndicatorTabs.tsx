@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Indicator, QuarterName } from "../types";
-import { getStatusTW } from "../utils";
+import { getStatusTW, sanitizeUrl } from "../utils";
 import { 
   Building, 
   UserCircle2, 
@@ -264,7 +264,7 @@ export default function IndicatorTabs({
                         {qData.isFilled ? (
                           <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider ${
                             liveStatus === "Tercapai" ? "bg-emerald-50 text-emerald-700 border border-emerald-100" :
-                            liveStatus === "On Track" ? "bg-yellow-50 text-yellow-700 border border-yellow-105-disabled border-yellow-101 border-yellow-100" :
+                            liveStatus === "On Track" ? "bg-yellow-50 text-yellow-700 border border-yellow-200" :
                             "bg-red-50 text-red-700 border border-red-100 animate-pulse"
                           }`}>
                             {liveStatus}
@@ -288,7 +288,7 @@ export default function IndicatorTabs({
                             <div 
                               className={`h-full rounded-full ${
                                 liveStatus === "Tercapai" ? "bg-emerald-500" :
-                                liveStatus === "On Track" ? "bg-yellow-55 bg-yellow-500" :
+                                liveStatus === "On Track" ? "bg-yellow-500" :
                                 "bg-red-500"
                               }`}
                               style={{ width: `${Math.min(qData.capaian, 100)}%` }}
@@ -296,7 +296,7 @@ export default function IndicatorTabs({
                           </div>
 
                           {qData.justifikasi && (
-                            <div className="text-[10px] text-slate-600 mt-1.5 select-text bg-red-55 bg-red-50/40 p-2.5 rounded border border-red-100 italic font-medium">
+                            <div className="text-[10px] text-slate-600 mt-1.5 select-text bg-red-50/40 p-2.5 rounded border border-red-100 italic font-medium">
                               <strong className="text-red-900 block font-bold mb-1">Permasalahan:</strong>
                               "{qData.justifikasi}"
                             </div>
@@ -311,7 +311,7 @@ export default function IndicatorTabs({
 
                           {qData.linkDokumen && (
                             <a
-                              href={qData.linkDokumen}
+                              href={sanitizeUrl(qData.linkDokumen)}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="text-[10px] text-teal-800 hover:text-teal-950 font-bold flex items-center gap-1 mt-1 hover:underline"
