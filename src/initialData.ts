@@ -536,11 +536,12 @@ export const INITIAL_INDICATORS: Indicator[] = [
     kode: "IKM 33.2.2",
     indikatorKinerja: "Persentase EBITDA Margin",
     definisiOperasional: "Rasio Surplus atau Defisit Sebelum Pendapatan (Beban) Keuangan dan Pajak ditambah beban penyusutan, amortisasi dan cadangan penyisihan piutang dibandingkan dengan Pendapatan Operasional.",
-    formulaPerhitungan: "EBITDA / (Pendapatan Alokasi APBN + Pendapatan PNBP) x 100%",
+    formulaPerhitungan: "(EBITDA / Jumlah Pendapatan) x 100% di mana EBITDA = Surplus/Defisit Kegiatan Operasional + Beban Penyusutan dan Amortisasi + Beban Penyisihan Piutang Tak Tertagih",
     dataDibutuhkan: [
-      "Nilai EBITDA",
-      "Pendapatan Alokasi APBN",
-      "Pendapatan PNBP"
+      "Surplus/Defisit Kegiatan Operasional",
+      "Beban Penyusutan dan Amortisasi",
+      "Beban Penyisihan Piutang Tak Tertagih",
+      "Jumlah Pendapatan"
     ],
     target2026: 20.36,
     target2026Label: "20,36%",
@@ -551,9 +552,10 @@ export const INITIAL_INDICATORS: Indicator[] = [
       "TW I": {
         isFilled: true,
         variables: {
-          "Nilai EBITDA": 55.52,
-          "Pendapatan Alokasi APBN": 50,
-          "Pendapatan PNBP": 50
+          "Surplus/Defisit Kegiatan Operasional": 25674147585,
+          "Beban Penyusutan dan Amortisasi": 0,
+          "Beban Penyisihan Piutang Tak Tertagih": 0,
+          "Jumlah Pendapatan": 46240943236
         },
         realisasi: 55.52,
         realisasiLabel: "55.52%",

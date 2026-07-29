@@ -105,12 +105,36 @@ export function calculateRealisasi(kode: string, variables: { [key: string]: num
       return { realisasi: a, label: String(a) };
     }
     case "IKM 33.2.2": {
-      const a = variables["Nilai EBITDA"] || 0;
-      const b = variables["Pendapatan Alokasi APBN"] || 0;
-      const c = variables["Pendapatan PNBP"] || 0;
-      if (b + c === 0) return { realisasi: 0, label: "0%" };
-      const val = (a / (b + c)) * 100;
-      return { realisasi: Number(val.toFixed(2)), label: val.toFixed(2) + "%" };
+      const pend = variables["Jumlah Pendapatan"] ?? (
+        (variables["Pendapatan Alokasi APBN"] || 0) + (variables["Pendapatan PNBP"] || 0)
+      );
+
+      let ebitda = variables["Nilai EBITDA"];
+
+      if (ebitda === undefined || variables["Surplus/Defisit Kegiatan Operasional"] !== undefined) {
+        const surplusOps = variables["Surplus/Defisit Kegiatan Operasional"];
+        if (surplusOps !== undefined) {
+          const penyusutan = variables["Beban Penyusutan dan Amortisasi"] || 0;
+          const piutang = variables["Beban Penyisihan Piutang Tak Tertagih"] || 0;
+          ebitda = surplusOps + penyusutan + piutang;
+        }
+      }
+
+      if (ebitda !== undefined && pend && pend > 0) {
+        const val = (ebitda / pend) * 100;
+        return { realisasi: Number(val.toFixed(2)), label: val.toFixed(2) + "%" };
+      }
+
+      // Legacy fallback
+      const oldEbitda = variables["Nilai EBITDA"] || 0;
+      const oldApbn = variables["Pendapatan Alokasi APBN"] || 0;
+      const oldPnbp = variables["Pendapatan PNBP"] || 0;
+      if (oldApbn + oldPnbp > 0) {
+        const val = (oldEbitda / (oldApbn + oldPnbp)) * 100;
+        return { realisasi: Number(val.toFixed(2)), label: val.toFixed(2) + "%" };
+      }
+
+      return { realisasi: 0, label: "0%" };
     }
     case "IKM 33.2.3": {
       const a = variables["Pendapatan PNBP/BLU"] || 0;
