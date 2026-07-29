@@ -237,8 +237,8 @@ export const INITIAL_INDICATORS: Indicator[] = [
     no: 8,
     kode: "IKM 17.3.8",
     indikatorKinerja: "Rasio Dosen Tetap terhadap Mahasiswa",
-    definisiOperasional: "Seluruh Dosen tetap dibandingkan dengan jumlah Mahasiswa pada Tahun H. Rasio Dosen terhadap Mahasiswa yaitu 1:27 - 1:30.",
-    formulaPerhitungan: "Jumlah Dosen Tetap Tahun T / Jumlah Mahasiswa Tahun T",
+    definisiOperasional: "Seluruh Dosen tetap dibandingkan dengan jumlah Mahasiswa pada Tahun H. Rasio Dosen terhadap Mahasiswa yaitu 1:27 - 1:30 (pembulatan hasil rasio dilakukan ke bawah).",
+    formulaPerhitungan: "1 : [Jumlah Mahasiswa Tahun T / Jumlah Dosen Tetap Tahun T (Dibulatkan Ke Bawah)]",
     dataDibutuhkan: [
       "Jumlah Dosen Tetap Tahun T",
       "Jumlah Mahasiswa Tahun T"

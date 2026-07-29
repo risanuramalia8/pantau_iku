@@ -57,7 +57,7 @@ export function calculateRealisasi(kode: string, variables: { [key: string]: num
       const a = variables["Jumlah Dosen Tetap Tahun T"] || 0;
       const b = variables["Jumlah Mahasiswa Tahun T"] || 0;
       if (a === 0) return { realisasi: "1:0", label: "1:0" };
-      const ratioVal = Number((b / a).toFixed(0));
+      const ratioVal = Math.floor(b / a);
       return { realisasi: `1:${ratioVal}`, label: `1:${ratioVal}` };
     }
     case "IKM 17.3.9": {
@@ -194,18 +194,25 @@ export function calculateRealisasi(kode: string, variables: { [key: string]: num
 }
 
 export function calculateCapaian(kode: string, realisasi: number | string, target: number): number {
-  if (typeof realisasi === "string") {
-    if (kode === "IKM 17.3.8") {
+  if (kode === "IKM 17.3.8") {
+    let rawNum = 0;
+    if (typeof realisasi === "string") {
       const realStr = String(realisasi).replace("Rasio ", "").replace("1:", "").trim();
-      const realVal = parseFloat(realStr);
-      if (isNaN(realVal) || realVal === 0) return 0;
-      // Rentang ideal: 1:27 ke 1:30
-      if (realVal <= target && realVal >= 27) return 100;
-      if (realVal > target) {
-        return Number(((target / realVal) * 100).toFixed(2));
-      }
-      return 100;
+      rawNum = parseFloat(realStr);
+    } else if (typeof realisasi === "number") {
+      rawNum = realisasi;
     }
+    if (isNaN(rawNum) || rawNum === 0) return 0;
+    const realVal = Math.floor(rawNum);
+    // Rentang ideal: 1:27 ke 1:30
+    if (realVal <= target && realVal >= 27) return 100;
+    if (realVal > target) {
+      return Number(((target / realVal) * 100).toFixed(2));
+    }
+    return 100;
+  }
+
+  if (typeof realisasi === "string") {
     return 0;
   }
 
