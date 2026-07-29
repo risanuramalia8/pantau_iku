@@ -136,8 +136,15 @@ export function calculateRealisasi(kode: string, variables: { [key: string]: num
       return { realisasi: a, label: a + "%" };
     }
     case "IKD 33.1.2": {
-      const a = variables["Persentase Mutasi Pegawai antar Satuan Kerja"] || 0;
-      return { realisasi: a, label: a + "%" };
+      const a = variables["Jumlah pegawai yang dimutasi antar satuan kerja dan/atau antar unit di satuan kerja"];
+      const b = variables["Jumlah total pegawai"];
+      if (a !== undefined && b !== undefined) {
+        if (b === 0) return { realisasi: 0, label: "0%" };
+        const val = (a / b) * 100;
+        return { realisasi: Number(val.toFixed(2)), label: val.toFixed(2) + "%" };
+      }
+      const legacy = variables["Persentase Mutasi Pegawai antar Satuan Kerja"] || 0;
+      return { realisasi: legacy, label: legacy + "%" };
     }
     default: {
       const keys = Object.keys(variables);

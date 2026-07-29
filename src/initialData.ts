@@ -738,7 +738,8 @@ export const INITIAL_INDICATORS: Indicator[] = [
     definisiOperasional: "Persentase pegawai yang dimutasi dari satuan kerja ke satuan kerja lain dan/atau dari unit ke unit lain di dalam satuan kerja tersebut dalam 1 tahun sebagai bagian dari kebijakan penataan dan redistribusi SDM untuk memenuhi kebutuhan organisasi.",
     formulaPerhitungan: "Jumlah pegawai yang dimutasi antar satuan kerja dan/atau antar unit di satuan kerja tersebut dibagi jumlah total pegawai dikali 100%",
     dataDibutuhkan: [
-      "Persentase Mutasi Pegawai antar Satuan Kerja"
+      "Jumlah pegawai yang dimutasi antar satuan kerja dan/atau antar unit di satuan kerja",
+      "Jumlah total pegawai"
     ],
     target2026: 10.0,
     target2026Label: "10%",
@@ -749,7 +750,8 @@ export const INITIAL_INDICATORS: Indicator[] = [
       "TW I": {
         isFilled: true,
         variables: {
-          "Persentase Mutasi Pegawai antar Satuan Kerja": 0.6
+          "Jumlah pegawai yang dimutasi antar satuan kerja dan/atau antar unit di satuan kerja": 2,
+          "Jumlah total pegawai": 333
         },
         realisasi: 0.6,
         realisasiLabel: "0.6%",

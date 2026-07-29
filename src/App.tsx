@@ -140,22 +140,25 @@ export default function App() {
               hasMigration = true;
             }
 
-            // Auto update DO & Formula if outdated or placeholder
+            // Auto update DO, Formula & dataDibutuhkan if outdated or placeholder
             const officialMatch = INITIAL_INDICATORS.find(i => i.kode === data.kode);
             if (officialMatch) {
               if (
                 !data.definisiOperasional ||
                 data.definisiOperasional.includes("Belum ada DO") ||
                 data.definisiOperasional !== officialMatch.definisiOperasional ||
-                data.formulaPerhitungan !== officialMatch.formulaPerhitungan
+                data.formulaPerhitungan !== officialMatch.formulaPerhitungan ||
+                JSON.stringify(data.dataDibutuhkan) !== JSON.stringify(officialMatch.dataDibutuhkan)
               ) {
                 data.definisiOperasional = officialMatch.definisiOperasional;
                 data.formulaPerhitungan = officialMatch.formulaPerhitungan;
+                data.dataDibutuhkan = officialMatch.dataDibutuhkan;
                 const docId = `${data.kode}_${data.tahun}`;
                 const docRef = doc(db, "indicators", docId);
                 batch.update(docRef, {
                   definisiOperasional: officialMatch.definisiOperasional,
-                  formulaPerhitungan: officialMatch.formulaPerhitungan
+                  formulaPerhitungan: officialMatch.formulaPerhitungan,
+                  dataDibutuhkan: officialMatch.dataDibutuhkan
                 });
                 hasMigration = true;
               }
