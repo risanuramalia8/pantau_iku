@@ -14,7 +14,9 @@ import {
   ChevronsRight,
   ShieldCheck,
   FileText,
-  Save
+  Save,
+  Search,
+  X
 } from "lucide-react";
 
 interface HomeDashboardProps {
@@ -40,6 +42,7 @@ export default function HomeDashboard({
   const [wadirFilter, setWadirFilter] = useState("Semua");
   const [statusFilter, setStatusFilter] = useState("Semua");
   const [sortBy, setSortBy] = useState<"no" | "highest" | "lowest">("no");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const spiKey = `${selectedYear}_${selectedQuarter}`;
   const currentSpiNote = (spiNotes && spiNotes[spiKey]) || "";
@@ -83,8 +86,17 @@ export default function HomeDashboard({
       else if (statusFilter === "Perlu Perhatian") matchesStatus = ind.liveStatus === "Perlu Perhatian";
       else if (statusFilter === "Belum Diisi") matchesStatus = !ind.isFilled;
     }
+
+    const q = searchQuery.trim().toLowerCase();
+    const matchesSearch = !q ||
+      ind.kode.toLowerCase().includes(q) ||
+      ind.indikatorKinerja.toLowerCase().includes(q) ||
+      (ind.definisiOperasional && ind.definisiOperasional.toLowerCase().includes(q)) ||
+      (ind.formulaPerhitungan && ind.formulaPerhitungan.toLowerCase().includes(q)) ||
+      (ind.pj && ind.pj.toLowerCase().includes(q)) ||
+      (ind.pjWadir && ind.pjWadir.toLowerCase().includes(q));
     
-    return matchesPj && matchesWadir && matchesStatus;
+    return matchesPj && matchesWadir && matchesStatus && matchesSearch;
   });
 
   if (sortBy === "highest") {
@@ -293,6 +305,38 @@ export default function HomeDashboard({
                 <option value="lowest">Capaian: Terendah</option>
               </select>
             </div>
+          </div>
+
+          {/* Quick Search Field */}
+          <div className="py-3 border-b border-gray-100">
+            <div className="relative w-full">
+              <Search className="absolute left-3.5 top-2.5 w-4 h-4 text-teal-600 pointer-events-none" />
+              <input
+                id="search-indicator-dashboard"
+                type="text"
+                placeholder="Cari indikator (Kode, Nama Indikator, DO, Formula, PJ)..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-9 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-600 focus:bg-white transition-all font-semibold text-slate-800 placeholder-slate-400 shadow-inner"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-200 transition"
+                  title="Bersihkan pencarian"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+            {searchQuery && (
+              <div className="mt-1.5 flex items-center justify-between text-[11px] text-teal-800 font-medium px-1">
+                <span>Hasil pencarian untuk: <strong className="font-bold">"{searchQuery}"</strong></span>
+                <span className="font-mono bg-teal-100 text-teal-900 px-2 py-0.5 rounded-full font-bold text-[10px]">
+                  {filteredData.length} indikator ditemukan
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Quick filter pill buttons */}

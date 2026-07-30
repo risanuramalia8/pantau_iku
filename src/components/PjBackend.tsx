@@ -25,7 +25,9 @@ import {
   FileSpreadsheet,
   Clock,
   CheckSquare,
-  AlertTriangle
+  AlertTriangle,
+  Search,
+  X
 } from "lucide-react";
 
 interface PjBackendProps {
@@ -51,6 +53,19 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
   const myIndicators = indicators.filter(ind => 
     ind.pj === session.pjName || ind.pjWadir === session.pjName
   );
+  
+  const [pjSearch, setPjSearch] = useState("");
+
+  const filteredMyIndicators = myIndicators.filter(ind => {
+    if (!pjSearch.trim()) return true;
+    const q = pjSearch.toLowerCase().trim();
+    return (
+      ind.kode.toLowerCase().includes(q) ||
+      ind.indikatorKinerja.toLowerCase().includes(q) ||
+      (ind.definisiOperasional && ind.definisiOperasional.toLowerCase().includes(q)) ||
+      (ind.formulaPerhitungan && ind.formulaPerhitungan.toLowerCase().includes(q))
+    );
+  });
   
   // Tab states for Wadir
   const [activeSubTab, setActiveSubTab] = useState<"rekap" | "isi" | "laporan">("rekap");
@@ -659,10 +674,34 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
                 <p className="text-[11px] text-slate-500 mt-1">
                   Sebagai {isWadir ? "Pimpinan" : "PJ/Verifikator"} <strong className="text-teal-900">{formatPjName(session.pjName)}</strong>, Anda dapat meninjau atau mengedit {myIndicators.length} indikator di bawah.
                 </p>
+                <div className="relative mt-3">
+                  <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
+                  <input
+                    id="search-pj-indicators"
+                    type="text"
+                    placeholder="Cari indikator Anda..."
+                    value={pjSearch}
+                    onChange={(e) => setPjSearch(e.target.value)}
+                    className="w-full pl-8 pr-7 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded focus:outline-none focus:ring-1 focus:ring-teal-700 font-semibold text-slate-800 placeholder-slate-400"
+                  />
+                  {pjSearch && (
+                    <button
+                      onClick={() => setPjSearch("")}
+                      className="absolute right-2 top-2 text-slate-400 hover:text-slate-600"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="mt-4 space-y-2 max-h-[450px] overflow-y-auto pr-1">
-                {myIndicators.map((ind) => {
+                {filteredMyIndicators.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-slate-400 font-bold">
+                    Tidak ada indikator yang sesuai pencarian
+                  </div>
+                ) : (
+                  filteredMyIndicators.map((ind) => {
                   const isActive = ind.kode === activeKode;
                   const hasTwIFilled = ind.quarters["TW I"].isFilled;
                   const hasTwIIFilled = ind.quarters["TW II"].isFilled;
@@ -697,7 +736,7 @@ export default function PjBackend({ indicators, session, onUpdateIndicator }: Pj
                       </div>
                     </button>
                   );
-                })}
+                }))}
               </div>
             </div>
           </div>
