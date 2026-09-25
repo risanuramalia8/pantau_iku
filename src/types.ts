@@ -41,9 +41,22 @@ export interface Indicator {
 export interface UserSession {
   email: string;
   name: string;
-  role: "admin" | "pj" | "spi_verifier";
+  role: "admin" | "pj" | "spi_verifier" | "direktur" | string;
   pjName?: string; // which PJ they are, e.g., "Keuangan", "UPM", "SPI", etc.
   avatar?: string;
+}
+
+export interface SystemAccount {
+  id?: string;
+  username: string;
+  password?: string;
+  name: string;
+  role: "admin" | "pj" | "spi_verifier" | string;
+  pjName?: string;
+  email: string;
+  isDefault?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export type QuarterName = "TW I" | "TW II" | "TW III" | "TW IV";

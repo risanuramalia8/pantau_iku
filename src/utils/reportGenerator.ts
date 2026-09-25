@@ -16,6 +16,7 @@ import {
 import pptxgen from "pptxgenjs";
 import { Indicator, QuarterName } from "../types";
 import { getTargetLabel } from "../utils";
+import { getLocalSignatureConfig } from "./signatureSettings";
 
 // Helper to translate status to Indonesian text
 export function getStatusText(status: string): string {
@@ -727,21 +728,45 @@ export async function generateDocxReport(
           new TableCell({
             width: { size: 50, type: WidthType.PERCENTAGE },
             children: [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                spacing: { before: 180, after: 1200 },
-                children: [
-                  new TextRun({ text: `Palembang, ${new Date().toLocaleDateString("id-ID", { year: 'numeric', month: 'long', day: 'numeric' })}\n`, size: 18, font: "Arial" }),
-                  new TextRun({ text: `Penanggung Jawab Kinerja / Sektor\n${authorText}`, bold: true, size: 18, font: "Arial" })
-                ]
-              }),
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: [
-                  new TextRun({ text: `( ${authorText.replace("PJ ", "")} )`, bold: true, size: 18, font: "Arial" }),
-                  new TextRun({ text: "\nNIP. _____________________________", size: 16, font: "Calibri" })
-                ]
-              })
+              (() => {
+                const sig = getLocalSignatureConfig();
+                const isDirektur = authorText.toLowerCase().includes("direktur");
+                const cityStr = (isDirektur && sig.city) ? sig.city : "Palembang";
+                const titleStr = isDirektur ? (sig.directorTitle || "Direktur Poltekkes Kemenkes Palembang") : `Penanggung Jawab Kinerja / Sektor\n${authorText}`;
+                const nameStr = isDirektur 
+                  ? (sig.directorName ? sig.directorName : "............................................................")
+                  : authorText.replace("PJ ", "");
+                const nipStr = isDirektur 
+                  ? (sig.directorNip ? sig.directorNip : ".......................................................")
+                  : "_____________________________";
+
+                return new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  spacing: { before: 180, after: 1200 },
+                  children: [
+                    new TextRun({ text: `${cityStr}, ${new Date().toLocaleDateString("id-ID", { year: 'numeric', month: 'long', day: 'numeric' })}\n`, size: 18, font: "Arial" }),
+                    new TextRun({ text: `${titleStr}\n`, bold: true, size: 18, font: "Arial" })
+                  ]
+                });
+              })(),
+              (() => {
+                const sig = getLocalSignatureConfig();
+                const isDirektur = authorText.toLowerCase().includes("direktur");
+                const nameStr = isDirektur 
+                  ? (sig.directorName ? sig.directorName : "............................................................")
+                  : authorText.replace("PJ ", "");
+                const nipStr = isDirektur 
+                  ? (sig.directorNip ? sig.directorNip : ".......................................................")
+                  : "_____________________________";
+
+                return new Paragraph({
+                  alignment: AlignmentType.CENTER,
+                  children: [
+                    new TextRun({ text: `( ${nameStr} )`, bold: true, size: 18, font: "Arial" }),
+                    new TextRun({ text: `\nNIP. ${nipStr}`, size: 16, font: "Calibri" })
+                  ]
+                });
+              })()
             ]
           })
         ]

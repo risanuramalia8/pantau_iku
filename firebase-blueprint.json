@@ -83,6 +83,38 @@
         }
       },
       "required": ["year", "quarter", "note"]
+    },
+    "SystemAccount": {
+      "title": "SystemAccount",
+      "description": "Akun pengguna sistem dan hak akses peran (Role-based access)",
+      "type": "object",
+      "properties": {
+        "username": {
+          "type": "string",
+          "description": "Unique username login"
+        },
+        "password": {
+          "type": "string",
+          "description": "Password kredensial akun"
+        },
+        "name": {
+          "type": "string",
+          "description": "Nama lengkap pengguna atau unit"
+        },
+        "role": {
+          "type": "string",
+          "description": "Peran akun (admin, pj, spi_verifier, dll)"
+        },
+        "pjName": {
+          "type": "string",
+          "description": "Nama Penanggung Jawab unit terkait jika role pj"
+        },
+        "email": {
+          "type": "string",
+          "description": "Email resmi pengguna"
+        }
+      },
+      "required": ["username", "name", "role"]
     }
   },
   "firestore": {
@@ -93,6 +125,18 @@
     "/spi_notes/{noteId}": {
       "schema": "SpiNote",
       "description": "Collection of all SPI Verification Notes"
+    },
+    "/system_accounts/{accountId}": {
+      "schema": "SystemAccount",
+      "description": "Collection of dynamic system accounts and user roles"
+    },
+    "/system_settings/{settingId}": {
+      "schema": {
+        "title": "SystemSetting",
+        "type": "object",
+        "description": "Pengaturan institusi, penandatangan laporan, dan konfigurasi sistem"
+      },
+      "description": "Collection of system settings and signature configurations"
     }
   }
 }

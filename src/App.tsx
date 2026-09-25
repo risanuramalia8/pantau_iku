@@ -7,6 +7,7 @@ import HomeDashboard from "./components/HomeDashboard";
 import IndicatorTabs from "./components/IndicatorTabs";
 import PjBackend from "./components/PjBackend";
 import AdminPanel from "./components/AdminPanel";
+import DirekturPanel from "./components/DirekturPanel";
 import LoadingSkeleton from "./LoadingSkeleton";
 import { 
   Chrome, 
@@ -23,7 +24,8 @@ import {
   AlertCircle,
   Cloud,
   CloudOff,
-  RefreshCw
+  RefreshCw,
+  Award
 } from "lucide-react";
 import { collection, doc, getDocs, setDoc, writeBatch, deleteDoc } from "firebase/firestore";
 import { db } from "./firebase";
@@ -463,8 +465,12 @@ export default function App() {
     // Auto-navigate to appropriate backend workspace
     if (session.role === "admin") {
       setActiveTab("admin-panel");
-    } else {
+    } else if (session.role === "direktur") {
+      setActiveTab("direktur-panel");
+    } else if (session.role === "pj" || session.pjName) {
       setActiveTab("pj-backend");
+    } else {
+      setActiveTab("dashboard");
     }
   };
 
@@ -545,7 +551,7 @@ export default function App() {
                 <span>Tab Detail IKU</span>
               </button>
 
-              {userSession && userSession.role === "pj" && (
+              {userSession && (userSession.role === "pj" || userSession.pjName) && (
                 <button
                   id="header-nav-pj-backend"
                   onClick={() => setActiveTab("pj-backend")}
@@ -557,6 +563,21 @@ export default function App() {
                 >
                   <FileEdit className="w-3.5 h-3.5" />
                   <span>Isian PJ</span>
+                </button>
+              )}
+
+              {userSession && (userSession.role === "direktur" || userSession.role === "admin") && (
+                <button
+                  id="header-nav-direktur-panel"
+                  onClick={() => setActiveTab("direktur-panel")}
+                  className={`px-3 py-1.5 text-xs font-bold rounded transition-all flex items-center gap-1.5 ${
+                    activeTab === "direktur-panel"
+                      ? "bg-purple-900 text-white shadow"
+                      : "text-purple-200 hover:text-white hover:bg-white/10"
+                  }`}
+                >
+                  <Award className="w-3.5 h-3.5 text-yellow-300" />
+                  <span>Panel Direktur</span>
                 </button>
               )}
 
@@ -579,29 +600,43 @@ export default function App() {
             {/* Auth Session Button */}
             {userSession ? (
               <div className="flex items-center gap-2 bg-teal-900/60 border border-teal-700/50 p-1 rounded-lg">
-                <div id="user-session-badge" className="w-7 h-7 rounded-full bg-yellow-500 text-teal-950 font-black text-xs flex items-center justify-center flex-shrink-0 border border-yellow-400 font-mono">
-                  {userSession.role === "spi_verifier" 
-                    ? "SP" 
-                    : userSession.pjName?.startsWith("Wadir") 
-                      ? userSession.pjName.replace("Wadir ", "W") 
-                      : userSession.pjName 
-                        ? userSession.pjName.substring(0, 2).toUpperCase() 
-                        : "AD"}
+                <div id="user-session-badge" className={`w-7 h-7 rounded-full font-black text-xs flex items-center justify-center flex-shrink-0 border font-mono ${
+                  userSession.role === "direktur" 
+                    ? "bg-purple-600 text-white border-purple-400" 
+                    : "bg-yellow-500 text-teal-950 border-yellow-400"
+                }`}>
+                  {userSession.role === "direktur"
+                    ? "DIR"
+                    : userSession.role === "spi_verifier" 
+                      ? "SP" 
+                      : userSession.role === "admin"
+                        ? "AD"
+                        : userSession.pjName?.startsWith("Wadir") 
+                          ? userSession.pjName.replace("Wadir ", "W") 
+                          : userSession.pjName 
+                            ? userSession.pjName.substring(0, 2).toUpperCase() 
+                            : userSession.name.substring(0, 2).toUpperCase()}
                 </div>
                 <div className="hidden sm:block text-left text-[11px] leading-tight max-w-[120px]">
                   <p className="font-bold text-white truncate">{userSession.name}</p>
-                  <p className="text-[9px] text-yellow-400 truncate uppercase tracking-widest font-bold font-mono">
-                    {userSession.role === "spi_verifier" 
-                      ? "Verifikator SPI" 
-                      : userSession.pjName === "Wadir 1" 
-                        ? "Wadir I" 
-                        : userSession.pjName === "Wadir 2" 
-                          ? "Wadir II" 
-                          : userSession.pjName === "Wadir 3" 
-                            ? "Wadir III" 
-                            : userSession.pjName 
-                              ? `PJ ${userSession.pjName}` 
-                              : "Admin"}
+                  <p className={`text-[9px] truncate uppercase tracking-widest font-bold font-mono ${
+                    userSession.role === "direktur" ? "text-purple-300" : "text-yellow-400"
+                  }`}>
+                    {userSession.role === "direktur"
+                      ? "Direktur"
+                      : userSession.role === "spi_verifier" 
+                        ? "Verifikator SPI" 
+                        : userSession.role === "admin"
+                          ? "Admin"
+                          : userSession.pjName === "Wadir 1" 
+                            ? "Wadir I" 
+                            : userSession.pjName === "Wadir 2" 
+                              ? "Wadir II" 
+                              : userSession.pjName === "Wadir 3" 
+                                ? "Wadir III" 
+                                : userSession.pjName 
+                                  ? `PJ ${userSession.pjName}` 
+                                  : String(userSession.role).toUpperCase()}
                   </p>
                 </div>
                 <button
@@ -681,6 +716,15 @@ export default function App() {
                 onDeleteIndicator={handleDeleteIndicator}
                 onCopyTemplates={handleCopyTemplates}
                 onImportIndicators={handleImportIndicators}
+                selectedYear={selectedYear}
+              />
+            )}
+
+            {activeTab === "direktur-panel" && userSession && (
+              <DirekturPanel 
+                indicators={yearFilteredIndicators} 
+                selectedQuarter={selectedQuarter} 
+                onSelectIndicator={handleSelectIndicatorFromDashboard}
                 selectedYear={selectedYear}
               />
             )}

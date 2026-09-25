@@ -24,8 +24,13 @@ import {
   Unlock,
   FileText,
   Presentation,
-  Upload
+  Upload,
+  UserCog,
+  Users,
+  FileCheck
 } from "lucide-react";
+import AccountManager from "./AccountManager";
+import SignatureSettingsManager from "./SignatureSettingsManager";
 
 interface AdminPanelProps {
   indicators: Indicator[];
@@ -53,7 +58,7 @@ export default function AdminPanel({
   const [searchTerm, setSearchTerm] = useState("");
   const [pjFilter, setPjFilter] = useState("Semua");
   const [wadirFilter, setWadirFilter] = useState("Semua");
-  const [activeTab, setActiveTab] = useState<"rekap" | "worksheet" | "summary" | "manage">("rekap");
+  const [activeTab, setActiveTab] = useState<"rekap" | "worksheet" | "summary" | "manage" | "accounts" | "signature">("rekap");
 
   // Spreadsheet Import States
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -833,12 +838,12 @@ export default function AdminPanel({
         </div>
       </div>
 
-      {/* 2. Admin Dashboard View Selection (Worksheet, Summary, or Manage) */}
-      <div className="flex bg-white p-1 rounded-xl border border-slate-200 max-w-2xl shadow-sm">
+      {/* 2. Admin Dashboard View Selection (Worksheet, Summary, Manage, or Accounts) */}
+      <div className="flex bg-white p-1 rounded-xl border border-slate-200 max-w-4xl shadow-sm flex-wrap gap-1">
         <button
           id="tab-btn-rekap-view"
           onClick={() => setActiveTab("rekap")}
-          className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all ${
+          className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all text-center whitespace-nowrap ${
             activeTab === "rekap"
               ? "bg-teal-800 text-white shadow-sm"
               : "text-slate-600 hover:bg-slate-50"
@@ -849,7 +854,7 @@ export default function AdminPanel({
         <button
           id="tab-btn-worksheet-view"
           onClick={() => setActiveTab("worksheet")}
-          className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all ${
+          className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all text-center whitespace-nowrap ${
             activeTab === "worksheet"
               ? "bg-teal-800 text-white shadow-sm"
               : "text-slate-600 hover:bg-slate-50"
@@ -860,7 +865,7 @@ export default function AdminPanel({
         <button
           id="tab-btn-summary-view"
           onClick={() => setActiveTab("summary")}
-          className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all ${
+          className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all text-center whitespace-nowrap ${
             activeTab === "summary"
               ? "bg-teal-800 text-white shadow-sm"
               : "text-slate-600 hover:bg-slate-50"
@@ -871,13 +876,37 @@ export default function AdminPanel({
         <button
           id="tab-btn-manage-view"
           onClick={() => setActiveTab("manage")}
-          className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all ${
+          className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all text-center whitespace-nowrap ${
             activeTab === "manage"
               ? "bg-teal-800 text-white shadow-sm"
               : "text-slate-600 hover:bg-slate-50"
           }`}
         >
           Kelola Master IKU ({selectedYear})
+        </button>
+        <button
+          id="tab-btn-accounts-view"
+          onClick={() => setActiveTab("accounts")}
+          className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all text-center whitespace-nowrap flex items-center justify-center gap-1.5 ${
+            activeTab === "accounts"
+              ? "bg-teal-800 text-white shadow-sm"
+              : "text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          <UserCog className="w-3.5 h-3.5" />
+          <span>Kelola Akun & Role</span>
+        </button>
+        <button
+          id="tab-btn-signature-view"
+          onClick={() => setActiveTab("signature")}
+          className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all text-center whitespace-nowrap flex items-center justify-center gap-1.5 ${
+            activeTab === "signature"
+              ? "bg-teal-800 text-white shadow-sm"
+              : "text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          <FileCheck className="w-3.5 h-3.5" />
+          <span>Pengaturan Penandatangan</span>
         </button>
       </div>
 
@@ -1748,6 +1777,16 @@ export default function AdminPanel({
 
         </div>
       ) : null}
+
+      {/* 5. Kelola Akun & Hak Akses (Role) */}
+      {activeTab === "accounts" && (
+        <AccountManager indicators={indicators} />
+      )}
+
+      {/* 6. Pengaturan Pejabat & Penandatangan Laporan */}
+      {activeTab === "signature" && (
+        <SignatureSettingsManager />
+      )}
 
       {/* Spreadsheet Import Modal */}
       {isImportModalOpen && (

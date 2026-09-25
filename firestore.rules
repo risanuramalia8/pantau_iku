@@ -27,5 +27,13 @@ service cloud.firestore {
       allow create, update: if isValidSpiNote();
       allow delete: if true;
     }
+
+    match /system_accounts/{accountId} {
+      allow read, write: if true;
+    }
+
+    match /system_settings/{settingId} {
+      allow read, write: if true;
+    }
   }
 }

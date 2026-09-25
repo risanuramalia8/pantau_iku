@@ -1,5 +1,6 @@
-import React, { useState } from "react";
-import { UserSession } from "../types";
+import React, { useState, useEffect } from "react";
+import { UserSession, SystemAccount } from "../types";
+import { getAllAccounts, DEFAULT_SYSTEM_ACCOUNTS } from "../utils/accounts";
 import { KeyRound, ShieldAlert, X, User, LogIn, Eye, EyeOff } from "lucide-react";
 
 interface GoogleLoginModalProps {
@@ -8,137 +9,30 @@ interface GoogleLoginModalProps {
   onLoginSuccess: (session: UserSession) => void;
 }
 
-const SYSTEM_ACCOUNTS = [
-  {
-    username: "admin",
-    password: "admin123",
-    name: "Admin Perencana Poltekkes",
-    role: "admin" as const,
-    email: "admin.perencanaan@poltekkes-palembang.ac.id"
-  },
-  {
-    username: "alumni_kerjasama",
-    password: "alumni123",
-    name: "PJ Alumni dan Kerjasama",
-    role: "pj" as const,
-    pjName: "Alumni dan Kerjasama",
-    email: "alumni.kerjasama@poltekkes-palembang.ac.id"
-  },
-  {
-    username: "akademik",
-    password: "akademik123",
-    name: "PJ Akademik",
-    role: "pj" as const,
-    pjName: "Akademik",
-    email: "akademik@poltekkes-palembang.ac.id"
-  },
-  {
-    username: "p2m",
-    password: "p2m123",
-    name: "PJ P2M",
-    role: "pj" as const,
-    pjName: "P2M",
-    email: "p2m@poltekkes-palembang.ac.id"
-  },
-  {
-    username: "kepegawaian",
-    password: "kepegawaian123",
-    name: "PJ Kepegawaian",
-    role: "pj" as const,
-    pjName: "Kepegawaian",
-    email: "kepegawaian@poltekkes-palembang.ac.id"
-  },
-  {
-    username: "upm",
-    password: "upm123",
-    name: "PJ UPM",
-    role: "pj" as const,
-    pjName: "UPM",
-    email: "upm@poltekkes-palembang.ac.id"
-  },
-  {
-    username: "bahasa",
-    password: "bahasa123",
-    name: "PJ Pengembangan Bahasa",
-    role: "pj" as const,
-    pjName: "Pengembangan Bahasa",
-    email: "bahasa@poltekkes-palembang.ac.id"
-  },
-  {
-    username: "kemahasiswaan",
-    password: "kemahasiswaan123",
-    name: "PJ Kemahasiswaan",
-    role: "pj" as const,
-    pjName: "Kemahasiswaan",
-    email: "kemahasiswaan@poltekkes-palembang.ac.id"
-  },
-  {
-    username: "spi",
-    password: "spi123",
-    name: "PJ SPI",
-    role: "pj" as const,
-    pjName: "SPI",
-    email: "spi@poltekkes-palembang.ac.id"
-  },
-  {
-    username: "keuangan",
-    password: "keuangan123",
-    name: "PJ Keuangan",
-    role: "pj" as const,
-    pjName: "Keuangan",
-    email: "keuangan@poltekkes-palembang.ac.id"
-  },
-  {
-    username: "upr",
-    password: "upr123",
-    name: "PJ UPR",
-    role: "pj" as const,
-    pjName: "UPR",
-    email: "upr@poltekkes-palembang.ac.id"
-  },
-  {
-    username: "verifikator_spi",
-    password: "spi123",
-    name: "Verifikator SPI",
-    role: "spi_verifier" as const,
-    email: "verifikator.spi@poltekkes-palembang.ac.id"
-  },
-  {
-    username: "wadir1",
-    password: "wadir123",
-    name: "Wadir I (Wakil Direktur I)",
-    role: "pj" as const,
-    pjName: "Wadir 1",
-    email: "wadir1@poltekkes-palembang.ac.id"
-  },
-  {
-    username: "wadir2",
-    password: "wadir123",
-    name: "Wadir II (Wakil Direktur II)",
-    role: "pj" as const,
-    pjName: "Wadir 2",
-    email: "wadir2@poltekkes-palembang.ac.id"
-  },
-  {
-    username: "wadir3",
-    password: "wadir123",
-    name: "Wadir III (Wakil Direktur III)",
-    role: "pj" as const,
-    pjName: "Wadir 3",
-    email: "wadir3@poltekkes-palembang.ac.id"
-  }
-];
-
 export default function GoogleLoginModal({ isOpen, onClose, onLoginSuccess }: GoogleLoginModalProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [systemAccounts, setSystemAccounts] = useState<SystemAccount[]>(DEFAULT_SYSTEM_ACCOUNTS);
 
   // Dynamic login states for new/custom PJ units (e.g. 2027+)
   const [isCustomPjMode, setIsCustomPjMode] = useState(false);
   const [customPjName, setCustomPjName] = useState("");
+
+  // Load all accounts (including custom accounts created in Admin Console)
+  useEffect(() => {
+    if (isOpen) {
+      getAllAccounts().then(accs => {
+        if (accs && accs.length > 0) {
+          setSystemAccounts(accs);
+        }
+      }).catch(err => {
+        console.warn("Could not load dynamic accounts:", err);
+      });
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -168,7 +62,7 @@ export default function GoogleLoginModal({ isOpen, onClose, onLoginSuccess }: Go
           pjName: customPjName.trim()
         });
         onClose();
-      }, 850);
+      }, 600);
       return;
     }
 
@@ -178,7 +72,7 @@ export default function GoogleLoginModal({ isOpen, onClose, onLoginSuccess }: Go
     }
 
     // Attempt to match with system credentials
-    const account = SYSTEM_ACCOUNTS.find(
+    const account = systemAccounts.find(
       (acc) => acc.username.toLowerCase() === username.trim().toLowerCase()
     );
 
@@ -196,13 +90,13 @@ export default function GoogleLoginModal({ isOpen, onClose, onLoginSuccess }: Go
     setTimeout(() => {
       setIsAuthenticating(false);
       onLoginSuccess({
-        email: account.email,
+        email: account.email || `${account.username}@poltekkes-palembang.ac.id`,
         name: account.name,
         role: account.role,
-        pjName: account.role === "pj" ? account.pjName : undefined
+        pjName: account.role === "pj" || account.pjName ? account.pjName : undefined
       });
       onClose();
-    }, 850);
+    }, 600);
   };
 
   return (
@@ -291,7 +185,7 @@ export default function GoogleLoginModal({ isOpen, onClose, onLoginSuccess }: Go
                         id="input-login-username"
                         type="text"
                         required={!isCustomPjMode}
-                        placeholder="Contoh: admin atau pj_keuangan"
+                        placeholder="Contoh: direktur, admin, atau akademik"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         className="w-full text-xs px-3.5 pl-9 py-2.5 border border-slate-200 rounded focus:outline-none focus:ring-2 focus:ring-teal-700/20 focus:border-teal-700 font-bold text-slate-800 transition shadow-sm"
