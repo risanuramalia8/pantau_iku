@@ -27,10 +27,14 @@ import {
   Upload,
   UserCog,
   Users,
-  FileCheck
+  FileCheck,
+  Calculator,
+  FileSpreadsheet
 } from "lucide-react";
 import AccountManager from "./AccountManager";
 import SignatureSettingsManager from "./SignatureSettingsManager";
+import FormulaDataView from "./FormulaDataView";
+import { generateRekapIndukExcelWorkbook } from "../utils/formulaData";
 
 interface AdminPanelProps {
   indicators: Indicator[];
@@ -58,7 +62,7 @@ export default function AdminPanel({
   const [searchTerm, setSearchTerm] = useState("");
   const [pjFilter, setPjFilter] = useState("Semua");
   const [wadirFilter, setWadirFilter] = useState("Semua");
-  const [activeTab, setActiveTab] = useState<"rekap" | "worksheet" | "summary" | "manage" | "accounts" | "signature">("rekap");
+  const [activeTab, setActiveTab] = useState<"rekap" | "worksheet" | "formula" | "summary" | "manage" | "accounts" | "signature">("rekap");
 
   // Spreadsheet Import States
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -420,6 +424,15 @@ export default function AdminPanel({
       document.body.removeChild(link);
     } catch (err: any) {
       alert("Gagal mengunduh berkas Excel: " + err.message);
+    }
+  };
+
+  // Handle download of Rekap Tabel Induk (Excel Multi-Sheet) containing Master Table & Data Formula Mentah
+  const handleDownloadRekapExcel = () => {
+    try {
+      generateRekapIndukExcelWorkbook(indicators, downloadScope, selectedYear);
+    } catch (err: any) {
+      alert("Gagal mengunduh Rekap Tabel Induk Excel: " + err.message);
     }
   };
 
@@ -786,13 +799,23 @@ export default function AdminPanel({
 
           <div className="flex items-center gap-2 flex-wrap w-full lg:w-auto">
             <button
-              id="btn-download-rekap-csv"
-              onClick={handleDownloadCSV}
-              title="Unduh data rekapitulasi tabel induk IKU dalam format CSV untuk pelaporan & olah data"
+              id="btn-download-rekap-excel"
+              onClick={handleDownloadRekapExcel}
+              title="Unduh data rekapitulasi tabel induk IKU dalam format Excel (.xlsx) Multi-Sheet lengkap dengan Sheet Data Mentah Formula"
               className="px-4 py-2 bg-teal-800 hover:bg-teal-900 text-white font-extrabold text-xs rounded flex items-center justify-center gap-2 shadow border border-teal-950 transition duration-150 transform hover:scale-[1.01] cursor-pointer h-[38px]"
             >
               <Download className="w-4 h-4 text-teal-100" />
-              <span>Rekap Tabel Induk (CSV)</span>
+              <span>Rekap Tabel Induk (Excel Multi-Sheet)</span>
+            </button>
+
+            <button
+              id="btn-download-rekap-csv"
+              onClick={handleDownloadCSV}
+              title="Unduh data rekapitulasi tabel induk IKU dalam format CSV sederhana"
+              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded flex items-center justify-center gap-1.5 border border-slate-300 transition duration-150 cursor-pointer h-[38px]"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-slate-500" />
+              <span>CSV</span>
             </button>
 
             <button
@@ -861,6 +884,18 @@ export default function AdminPanel({
           }`}
         >
           Worksheet Tabel Induk
+        </button>
+        <button
+          id="tab-btn-formula-view"
+          onClick={() => setActiveTab("formula")}
+          className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all text-center whitespace-nowrap flex items-center justify-center gap-1.5 ${
+            activeTab === "formula"
+              ? "bg-teal-800 text-white shadow-sm"
+              : "text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          <Calculator className="w-3.5 h-3.5" />
+          <span>Data Formula Per Indikator</span>
         </button>
         <button
           id="tab-btn-summary-view"
@@ -1234,6 +1269,13 @@ export default function AdminPanel({
           </div>
 
         </div>
+      ) : activeTab === "formula" ? (
+        <FormulaDataView
+          indicators={indicators}
+          selectedQuarter={selectedQuarter}
+          selectedYear={selectedYear}
+          onSelectIndicator={(ind) => onSelectIndicator(ind.kode)}
+        />
       ) : activeTab === "summary" ? (
         <div className="space-y-6">
           {/* Status Penyelesaian Laporan summary view */}
