@@ -29,11 +29,13 @@ import {
   Users,
   FileCheck,
   Calculator,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ShieldCheck
 } from "lucide-react";
 import AccountManager from "./AccountManager";
 import SignatureSettingsManager from "./SignatureSettingsManager";
 import FormulaDataView from "./FormulaDataView";
+import BackupRestoreManager from "./BackupRestoreManager";
 import { generateRekapIndukExcelWorkbook } from "../utils/formulaData";
 
 interface AdminPanelProps {
@@ -46,6 +48,8 @@ interface AdminPanelProps {
   onCopyTemplates?: (targetYear: number) => void;
   onImportIndicators?: (importedList: Indicator[]) => void;
   selectedYear: number;
+  spiNotes?: { [key: string]: string };
+  onRestoreSuccess?: (newIndicators: Indicator[], newSpiNotes: { [key: string]: string }) => void;
 }
 
 export default function AdminPanel({ 
@@ -57,12 +61,14 @@ export default function AdminPanel({
   onDeleteIndicator,
   onCopyTemplates,
   onImportIndicators,
-  selectedYear
+  selectedYear,
+  spiNotes,
+  onRestoreSuccess
 }: AdminPanelProps) {
   const [searchTerm, setSearchTerm] = useState("");
   const [pjFilter, setPjFilter] = useState("Semua");
   const [wadirFilter, setWadirFilter] = useState("Semua");
-  const [activeTab, setActiveTab] = useState<"rekap" | "worksheet" | "formula" | "summary" | "manage" | "accounts" | "signature">("rekap");
+  const [activeTab, setActiveTab] = useState<"rekap" | "worksheet" | "formula" | "summary" | "manage" | "accounts" | "signature" | "backup">("rekap");
 
   // Spreadsheet Import States
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -857,6 +863,16 @@ export default function AdminPanel({
               <Presentation className="w-4 h-4 text-amber-200" />
               <span>Presentasi (PPTX)</span>
             </button>
+
+            <button
+              id="btn-nav-backup-data"
+              onClick={() => setActiveTab("backup")}
+              title="Buka menu Download & Upload Backup keseluruhan data (mencegah data hilang)"
+              className="px-4 py-2 bg-gradient-to-r from-blue-800 to-indigo-800 hover:from-blue-900 hover:to-indigo-900 text-white font-extrabold text-xs rounded flex items-center justify-center gap-2 shadow border border-blue-950 transition duration-150 transform hover:scale-[1.01] cursor-pointer h-[38px]"
+            >
+              <ShieldCheck className="w-4 h-4 text-blue-200" />
+              <span>Backup &amp; Restore</span>
+            </button>
           </div>
         </div>
       </div>
@@ -942,6 +958,18 @@ export default function AdminPanel({
         >
           <FileCheck className="w-3.5 h-3.5" />
           <span>Pengaturan Penandatangan</span>
+        </button>
+        <button
+          id="tab-btn-backup-view"
+          onClick={() => setActiveTab("backup")}
+          className={`flex-1 py-2 px-3 text-xs font-bold rounded-lg transition-all text-center whitespace-nowrap flex items-center justify-center gap-1.5 ${
+            activeTab === "backup"
+              ? "bg-blue-800 text-white shadow-sm"
+              : "text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          <ShieldCheck className="w-3.5 h-3.5 text-blue-400" />
+          <span>Backup &amp; Restore Data</span>
         </button>
       </div>
 
@@ -1828,6 +1856,20 @@ export default function AdminPanel({
       {/* 6. Pengaturan Pejabat & Penandatangan Laporan */}
       {activeTab === "signature" && (
         <SignatureSettingsManager />
+      )}
+
+      {/* 7. Backup & Restore Keseluruhan Data IKU */}
+      {activeTab === "backup" && (
+        <BackupRestoreManager
+          indicators={indicators}
+          selectedYear={selectedYear}
+          spiNotes={spiNotes || {}}
+          onRestoreSuccess={(newInds, newNotes) => {
+            if (onRestoreSuccess) {
+              onRestoreSuccess(newInds, newNotes);
+            }
+          }}
+        />
       )}
 
       {/* Spreadsheet Import Modal */}

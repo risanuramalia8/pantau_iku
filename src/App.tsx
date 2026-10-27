@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { collection, doc, getDocs, setDoc, writeBatch, deleteDoc } from "firebase/firestore";
 import { db } from "./firebase";
+import { saveLocalSnapshot } from "./utils/backupManager";
 
 export default function App() {
   // Instant-on: Initialize from LocalStorage cache immediately to eliminate initial fetch delay for returning users
@@ -88,22 +89,48 @@ export default function App() {
         // Retrieve indicators directly from Firestore collection to optimize initial load speed (fetched once at mount)
         const querySnapshot = await getDocs(collection(db, "indicators"));
         if (querySnapshot.empty) {
-          // Cloud Firestore database is completely brand new/empty. Let's seed it for 2026!
-          const batch = writeBatch(db);
-          const seeded = INITIAL_INDICATORS.map(ind => ({
-            ...ind,
-            tahun: 2026
-          }));
+          // Cloud Firestore database collection is empty.
+          // CRITICAL SAFEGUARD: Check if user already had richer data saved in LocalStorage (e.g. TW II / TW III filled!)
+          let baseData: Indicator[] = [];
+          const savedLocal = localStorage.getItem("PANTAU_IKU_DATA_2026");
+          if (savedLocal) {
+            try {
+              const parsed = JSON.parse(savedLocal) as Indicator[];
+              if (Array.isArray(parsed) && parsed.length > 0) {
+                // If local storage has data with any quarter filled, preserve it!
+                const hasFilledAny = parsed.some(p => 
+                  p.quarters?.["TW II"]?.isFilled || 
+                  p.quarters?.["TW III"]?.isFilled || 
+                  p.quarters?.["TW IV"]?.isFilled || 
+                  p.quarters?.["TW I"]?.isFilled
+                );
+                if (hasFilledAny) {
+                  baseData = parsed;
+                  console.log("Preserving user data from LocalStorage to seed Firestore!");
+                }
+              }
+            } catch (e) {}
+          }
 
-          seeded.forEach(ind => {
-            const docId = `${ind.kode}_2026`;
+          if (baseData.length === 0) {
+            baseData = INITIAL_INDICATORS.map(ind => ({
+              ...ind,
+              tahun: 2026
+            }));
+          }
+
+          const batch = writeBatch(db);
+          baseData.forEach(ind => {
+            const year = ind.tahun || 2026;
+            const docId = `${ind.kode}_${year}`;
             const docRef = doc(db, "indicators", docId);
             batch.set(docRef, ind);
           });
           await batch.commit();
 
-          setIndicators(seeded);
-          localStorage.setItem("PANTAU_IKU_DATA_2026", JSON.stringify(seeded));
+          setIndicators(baseData);
+          localStorage.setItem("PANTAU_IKU_DATA_2026", JSON.stringify(baseData));
+          saveLocalSnapshot(baseData, spiNotes, 2026, "Auto-seeded initial snapshot");
           
           // Retrieve SPI Notes
           try {
@@ -324,6 +351,7 @@ export default function App() {
     
     // Update local copy
     localStorage.setItem("PANTAU_IKU_DATA_2026", JSON.stringify(updatedList));
+    saveLocalSnapshot(updatedList, spiNotes, selectedYear, "Perubahan Isian IKU");
 
     // Update Cloud Firestore document
     try {
@@ -335,6 +363,13 @@ export default function App() {
     } finally {
       setIsSyncing(false);
     }
+  };
+
+  const handleRestoreSuccess = (newIndicators: Indicator[], newSpiNotes: { [key: string]: string }) => {
+    setIndicators(newIndicators);
+    setSpiNotes(newSpiNotes);
+    localStorage.setItem("PANTAU_IKU_DATA_2026", JSON.stringify(newIndicators));
+    localStorage.setItem("PANTAU_IKU_SPI_NOTES_2026", JSON.stringify(newSpiNotes));
   };
 
   const handleImportIndicators = async (importedList: Indicator[]) => {
@@ -717,6 +752,8 @@ export default function App() {
                 onCopyTemplates={handleCopyTemplates}
                 onImportIndicators={handleImportIndicators}
                 selectedYear={selectedYear}
+                spiNotes={spiNotes}
+                onRestoreSuccess={handleRestoreSuccess}
               />
             )}
 
